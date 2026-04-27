@@ -1,0 +1,62 @@
+from uuid import UUID
+
+from app.api.schemas.book import BookCreate, BookStatusUpdate, BookUpdate
+from app.database.models.book import Book
+from app.database.repositories.book_repository import BookRepository
+from app.domain.book import (
+    BookNotFoundError,
+    BookRetirementError,
+    BookStatus,
+    validate_book_status_transition,
+)
+
+
+class BookService:
+    def __init__(self, repo: BookRepository) -> None:
+        self.repo = repo
+
+    def create_book(self, data: BookCreate) -> Book:
+        """Add a new book to the library."""
+        book = self.repo.create(data.model_dump())
+        self.repo.db.commit()
+        self.repo.db.refresh(book)
+        return book
+
+    def get_book(self, book_id: UUID) -> Book:
+        """Fetch a book by ID or raise BookNotFoundError."""
+        book = self.repo.get_by_id(book_id)
+        if book is None:
+            raise BookNotFoundError(f"Book {book_id} not found")
+        return book
+
+    def list_books(
+        self,
+        page: int,
+        size: int,
+        status: str | None = None,
+        search: str | None = None,
+    ) -> tuple[list[Book], int]:
+        """List books with optional status and search filters."""
+        return self.repo.get_all(page=page, size=size, status=status, search=search)
+
+    def update_book(self, book_id: UUID, data: BookUpdate) -> Book:
+        """Update mutable book fields."""
+        self.get_book(book_id)
+        updates = data.model_dump(exclude_unset=True)
+        book = self.repo.update(book_id, updates)
+        self.repo.db.commit()
+        self.repo.db.refresh(book)
+        return book
+
+    def update_status(self, book_id: UUID, data: BookStatusUpdate) -> Book:
+        """Change book status. Domain layer validates the transition."""
+        book = self.get_book(book_id)
+        current = BookStatus(book.status)
+        new = data.status
+        if current == BookStatus.BORROWED and new == BookStatus.RETIRED:
+            raise BookRetirementError("Book must be returned before retiring")
+        validate_book_status_transition(current, new)
+        book = self.repo.update_status(book_id, new.value)
+        self.repo.db.commit()
+        self.repo.db.refresh(book)
+        return book
