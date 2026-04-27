@@ -3,9 +3,14 @@
 ## How to Use
 1. Place `CLAUDE.md` and `.claude/` folder in your project root
 2. Open Claude Code in the project directory
-3. Run each prompt in order (Prompt 1 → 2 → 3 → ... → 7)
-4. After Prompt 1, subsequent prompts use slash commands where possible
-5. Verify each step works before moving to the next
+3. **Backend first:** Run Prompts 1 → 7 in order
+4. **Frontend second:** Run Prompts F1 → F6 in order (backend must be running)
+5. Use `/clear` between phases and where noted to manage context
+6. Verify each step works before moving to the next
+
+---
+
+# Part 1 — Backend Prompts (Python/FastAPI)
 
 ---
 
@@ -358,7 +363,7 @@ All tests should pass.
 
 ---
 
-## Execution Summary
+## Backend Execution Summary
 
 | Step | Command in Claude Code | Expected Time |
 |------|----------------------|---------------|
@@ -372,7 +377,7 @@ All tests should pass.
 
 **Total: ~20 minutes for a complete, working, tested backend.**
 
-## Post-Build Checklist
+## Backend Post-Build Checklist
 - [ ] `docker-compose up` starts PostgreSQL + app without errors
 - [ ] `make migrate` creates all tables
 - [ ] `make seed` loads demo data
@@ -383,3 +388,401 @@ All tests should pass.
 - [ ] PATCH /api/v1/borrows/{id}/return works → 200
 - [ ] GET /api/v1/borrows?overdue=true returns overdue borrows
 - [ ] `make test` — all tests pass
+
+---
+---
+
+# Part 2 — Frontend Prompts (Next.js)
+
+> **Prerequisites:** Backend must be running (`make demo` or `make dev`) before starting frontend.
+> **Model:** Use Sonnet for all frontend prompts.
+> **Context management:** Run `/clear` between F3→F4 and F5→F6.
+
+---
+
+## Prompt F1 — Scaffold + Layout + API Client + Types
+
+```
+Read CLAUDE.md "Frontend — Next.js App" section thoroughly.
+
+Create a Next.js 14 frontend in the frontend/ directory:
+
+1. INITIALIZE Next.js project:
+   - Run: npx create-next-app@latest frontend --typescript --tailwind --app --src-dir --no-eslint --import-alias "@/*"
+   - cd frontend
+   - Install shadcn: npx shadcn@latest init (default style, stone base color, CSS variables yes)
+   - Add components: npx shadcn@latest add button table badge input dialog select card separator toast tabs
+   - lucide-react is already included with shadcn
+
+2. CREATE frontend/.env.example:
+   NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+
+3. CREATE frontend/.env.local:
+   NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+
+4. CREATE frontend/src/types/index.ts:
+   - TypeScript interfaces matching backend Pydantic schemas exactly:
+   - Book: id, title, author, isbn, publisher, publication_year, genre, status ("available"|"borrowed"|"retired"), created_at, updated_at
+   - Member: id, name, email, phone, address, status ("active"|"inactive"|"suspended"), created_at, updated_at
+   - Borrow: id, book_id, member_id, borrowed_at, due_date, returned_at (nullable), notes, created_at, book: Book, member: Member
+   - PaginatedResponse<T>: items: T[], total, page, size, pages
+
+5. CREATE frontend/src/lib/api.ts:
+   - Base URL from NEXT_PUBLIC_API_URL env var
+   - Generic fetchAPI<T>(path, options?) helper with error handling
+   - Export typed functions:
+     - getBooks(params?) → PaginatedResponse<Book>
+     - createBook(data) → Book
+     - updateBookStatus(id, status) → Book
+     - getMembers(params?) → PaginatedResponse<Member>
+     - createMember(data) → Member
+     - updateMemberStatus(id, status) → Member
+     - getBorrows(params?) → PaginatedResponse<Borrow>
+     - createBorrow(data) → Borrow
+     - returnBorrow(id) → Borrow
+   - Query params built from object: Object.entries → filter nulls → URLSearchParams
+
+6. CREATE frontend/src/lib/utils.ts (alongside any existing cn() util from shadcn):
+   - formatDate(isoString): returns readable date like "Jan 15, 2026"
+   - formatDateTime(isoString): returns "Jan 15, 2026 3:30 PM"
+   - getStatusColor(entity: "book"|"member"|"borrow", status): returns tailwind badge variant
+     - book: available→green, borrowed→amber, retired→gray
+     - member: active→green, inactive→gray, suspended→red
+   - isOverdue(due_date, returned_at): boolean check
+
+7. CREATE frontend/src/components/layout/Sidebar.tsx:
+   - Fixed left sidebar, w-64, full height, stone-50 background
+   - Top: Library icon + "Neighborhood Library" text
+   - Nav links with lucide icons:
+     - LayoutDashboard → / (Dashboard)
+     - BookOpen → /books (Books)
+     - Users → /members (Members)
+     - ArrowLeftRight → /borrows (Borrows)
+   - Active link highlighted with stone-200 background
+   - Use next/link and usePathname() for active detection
+
+8. UPDATE frontend/src/app/layout.tsx:
+   - Import and render Sidebar on left side
+   - Main content area with padding on the right
+   - Add Toaster from shadcn for notifications
+   - Warm neutral background (bg-stone-100)
+
+9. CREATE frontend/src/app/page.tsx:
+   - Simple placeholder: "Dashboard — coming next" with 3 empty shadcn Card placeholders
+   - "use client" directive
+
+Verify: cd frontend && npm run dev — loads at localhost:3000, sidebar renders with navigation links, clicking links changes URL.
+```
+
+---
+
+## Prompt F2 — Dashboard Page
+
+```
+Read CLAUDE.md "Frontend — Pages Overview — Dashboard".
+
+Update frontend/src/app/page.tsx to build the full dashboard:
+
+1. STAT CARDS (3 cards in a responsive grid):
+   - Card 1: BookOpen icon + total book count + "Total Books" label
+   - Card 2: Users icon + active member count + "Active Members" label
+   - Card 3: ArrowLeftRight icon + active borrow count + "Active Borrows" label
+   - Fetch counts:
+     - GET /books?size=1 → use response.total
+     - GET /members?status=active&size=1 → use response.total
+     - GET /borrows?active=true&size=1 → use response.total
+   - Cards use shadcn Card, large number (text-3xl font-bold), subtle icon
+
+2. OVERDUE ALERT:
+   - Fetch GET /borrows?overdue=true&size=1 → get total
+   - If total > 0: amber/red banner with AlertTriangle icon, "{count} overdue borrows" + link to /borrows
+   - If total == 0: green banner "All books returned on time"
+
+3. RECENT ACTIVITY:
+   - Fetch GET /borrows?size=5 → last 5 borrows
+   - Card with title "Recent Borrows"
+   - Each item: member name + "borrowed" + book title + "— due" + formatted date
+   - Status badge next to each (active/overdue/returned using isOverdue util)
+
+4. Loading state:
+   - useState for loading boolean
+   - Show 3 skeleton cards (animate-pulse) while fetching
+   - useEffect fetches all data on mount
+
+Verify: Dashboard shows real counts from seeded data. Overdue alert shows "1 overdue borrow" (from seed). Recent borrows list shows seeded records.
+```
+
+---
+
+## Prompt F3 — Books Page
+
+```
+Read CLAUDE.md "Frontend — Pages Overview — Books".
+
+1. CREATE frontend/src/components/books/BookFormModal.tsx:
+   - shadcn Dialog component
+   - Form fields: title (required), author (required), isbn, publisher, publication_year (number), genre
+   - Props: open, onOpenChange, onSuccess (callback to refetch)
+   - Submit: call createBook() from lib/api.ts
+   - On success: toast("Book added"), call onSuccess(), close dialog
+   - On error: toast with error message
+   - Basic validation: title and author must not be empty
+
+2. CREATE frontend/src/components/books/BookTable.tsx:
+   - Props: books: Book[], onRefresh (callback)
+   - shadcn Table with columns: Title, Author, ISBN, Genre, Status, Actions
+   - ISBN: show "—" if null
+   - Genre: show "—" if null
+   - Status: shadcn Badge with color from getStatusColor("book", status)
+   - Actions column:
+     - If status == "available": "Retire" button (destructive variant, small)
+     - If status == "borrowed": show "Borrowed" text (no action)
+     - If status == "retired": show "Retired" text (no action)
+   - Retire click: call updateBookStatus(id, "retired"), toast, call onRefresh()
+   - Empty state: "No books found" message when list is empty
+
+3. UPDATE frontend/src/app/books/page.tsx:
+   - "use client" directive
+   - Page header row: "Books" title (text-2xl font-bold) + "Add Book" button (opens BookFormModal)
+   - Search input: debounced (300ms) text input, updates search param
+   - Status filter: shadcn Select with options: All, Available, Borrowed, Retired
+   - BookTable below filters
+   - Pagination controls at bottom: "Page X of Y" with Previous/Next buttons
+   - State: books[], total, page, size, search, statusFilter, loading
+   - useEffect: fetch books whenever page, search, or statusFilter changes
+   - Loading: show skeleton rows while fetching
+
+Verify: Books page lists 5 seeded books. Search "fowler" shows Refactoring. Filter "available" shows 3 books. "Add Book" creates new book. "Retire" changes available book to retired.
+```
+
+---
+
+## Prompt F4 — Members Page
+
+```
+Read CLAUDE.md "Frontend — Pages Overview — Members".
+Follow the EXACT same component patterns as the Books page.
+
+1. CREATE frontend/src/components/members/MemberFormModal.tsx:
+   - Same pattern as BookFormModal
+   - Fields: name (required), email (required), phone (optional), address (optional)
+   - Submit: call createMember()
+   - Validate email format (basic check: includes "@")
+
+2. CREATE frontend/src/components/members/MemberTable.tsx:
+   - Same pattern as BookTable
+   - Columns: Name, Email, Phone, Status, Actions
+   - Phone: show "—" if null
+   - Status: Badge with getStatusColor("member", status)
+   - Actions based on current status:
+     - active: "Suspend" button (destructive) + "Deactivate" button (secondary)
+     - inactive: "Activate" button (default/green)
+     - suspended: "Activate" button (default/green)
+   - Each action: call updateMemberStatus(id, newStatus), toast, onRefresh()
+
+3. UPDATE frontend/src/app/members/page.tsx:
+   - Same structure as books/page.tsx
+   - Header: "Members" + "Add Member" button
+   - Search + status filter (All/Active/Inactive/Suspended)
+   - MemberTable + pagination
+
+Verify: Members page lists 3 seeded members. "Suspend" on Alice works. "Activate" on Bob works. "Add Member" creates new member.
+```
+
+---
+
+## Prompt F5 — Borrows Page
+
+```
+Read CLAUDE.md "Frontend — Pages Overview — Borrows".
+
+1. CREATE frontend/src/components/borrows/BorrowFormModal.tsx:
+   - shadcn Dialog
+   - Two select dropdowns:
+     - "Select Book": fetches GET /books?status=available&size=100 on dialog open
+       - Shows: "Title — Author" for each available book
+     - "Select Member": fetches GET /members?status=active&size=100 on dialog open
+       - Shows: "Name (email)" for each active member
+   - Optional notes textarea
+   - Submit: call createBorrow({ book_id, member_id, notes })
+   - Both selects required — show validation error if empty
+   - On success: toast("Book borrowed successfully"), onSuccess(), close
+
+2. CREATE frontend/src/components/borrows/BorrowTable.tsx:
+   - Props: borrows: Borrow[], onRefresh
+   - Columns: Book Title, Member Name, Borrowed, Due Date, Status, Actions
+   - Borrowed: formatDate(borrowed_at)
+   - Due Date: formatDate(due_date)
+   - Status logic:
+     - returned_at != null → Badge "Returned" (green)
+     - isOverdue(due_date, returned_at) → Badge "Overdue" (red)
+     - else → Badge "Active" (blue)
+   - OVERDUE rows: add subtle red/rose background tint (bg-red-50)
+   - Actions:
+     - If active or overdue: "Return" button
+     - If returned: show formatted returned_at date
+   - Return click: call returnBorrow(id), toast("Book returned"), onRefresh()
+
+3. UPDATE frontend/src/app/borrows/page.tsx:
+   - Header: "Borrows" + "Borrow Book" button
+   - Filter using shadcn Tabs (not dropdown):
+     - "All" tab: no filter params
+     - "Active" tab: active=true
+     - "Overdue" tab: overdue=true
+     - "Returned" tab: active=false
+   - BorrowTable below tabs
+   - Pagination controls
+   - State: borrows[], total, page, activeTab, loading
+   - useEffect: refetch when page or activeTab changes
+
+Verify: Borrows page shows 3 seeded borrows. "Design Patterns" borrow shows as "Overdue" with red tint. "Clean Code" borrow shows as "Returned". Return button works on active borrows. "Borrow Book" modal shows only available books and active members.
+```
+
+---
+
+## Prompt F6 — Docker + Devbox + Final Wiring
+
+```
+Wire the frontend into Docker Compose and add devbox support for local dev.
+
+1. CREATE frontend/Dockerfile:
+   FROM node:20-alpine AS base
+
+   FROM base AS deps
+   WORKDIR /app
+   COPY package*.json ./
+   RUN npm ci
+
+   FROM base AS builder
+   WORKDIR /app
+   COPY --from=deps /app/node_modules ./node_modules
+   COPY . .
+   ENV NEXT_TELEMETRY_DISABLED=1
+   RUN npm run build
+
+   FROM base AS runner
+   WORKDIR /app
+   ENV NODE_ENV=production
+   ENV NEXT_TELEMETRY_DISABLED=1
+   COPY --from=builder /app/public ./public
+   COPY --from=builder /app/.next/standalone ./
+   COPY --from=builder /app/.next/static ./.next/static
+   EXPOSE 3000
+   CMD ["node", "server.js"]
+
+2. UPDATE frontend/next.config.ts:
+   - Add output: "standalone" (required for Docker multi-stage build)
+   - Add rewrites for local dev (proxy /api to backend):
+     async rewrites() {
+       return [{ source: "/api/:path*", destination: "http://localhost:8000/api/:path*" }];
+     }
+
+3. UPDATE docker-compose.yml (project root — do NOT overwrite, ADD to existing):
+   - Add frontend service:
+     frontend:
+       build: ./frontend
+       container_name: library-frontend
+       ports:
+         - "3000:3000"
+       environment:
+         - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+       depends_on:
+         backend:
+           condition: service_healthy
+       networks:
+         - library-network
+
+4. CREATE frontend/devbox.json:
+   {
+     "packages": ["nodejs@20", "gnumake@latest"],
+     "shell": {
+       "init_hook": [
+         "echo 'Frontend — Neighborhood Library'",
+         "if [ ! -d node_modules ]; then echo 'Installing deps...'; npm install; fi",
+         "echo ''",
+         "echo 'Ready! Run: npm run dev'"
+       ]
+     }
+   }
+
+5. UPDATE root Makefile:
+   - Update demo target: add wait for frontend container to be healthy after backend
+   - Update demo success banner to include: "Frontend  http://localhost:3000"
+   - Add new targets:
+     frontend-dev:
+       cd frontend && npm run dev
+     frontend-build:
+       cd frontend && npm run build
+
+6. UPDATE root README.md:
+   - Add "Frontend" section under Tech Stack: Next.js 14, TypeScript, Tailwind CSS, shadcn/ui
+   - Update Quick Start: mention frontend at http://localhost:3000
+   - Add "Local Frontend Development" section:
+     cd frontend && devbox shell && npm run dev
+     OR: cd frontend && npm install && npm run dev
+   - Update make demo output description to include frontend
+
+7. ADD frontend/.gitignore:
+   node_modules/
+   .next/
+   out/
+   .env.local
+
+Verify:
+- make demo starts db + backend + frontend (all 3 containers)
+- http://localhost:3000 loads dashboard with real data
+- http://localhost:8000/docs still works
+- cd frontend && npm run dev works for local frontend dev
+- All pages functional: dashboard, books, members, borrows
+```
+
+---
+
+## Frontend Execution Summary
+
+| Step | Prompt | Model | Expected Time |
+|------|--------|-------|---------------|
+| F1 | Scaffold + Layout + API + Types | Sonnet | ~5 min |
+| F2 | Dashboard | Sonnet | ~3 min |
+| F3 | Books page | Sonnet | ~4 min |
+| — | `/clear` | — | — |
+| F4 | Members page | Sonnet | ~3 min |
+| F5 | Borrows page | Sonnet | ~4 min |
+| — | `/clear` | — | — |
+| F6 | Docker + Devbox wiring | Sonnet | ~3 min |
+
+**Total: ~22 minutes for a polished, functional frontend.**
+
+## Frontend Post-Build Checklist
+- [ ] `make demo` starts all 3 services (db, backend, frontend)
+- [ ] http://localhost:3000 — Dashboard loads with stats and overdue alert
+- [ ] /books — List, search, filter, add book, retire book all work
+- [ ] /members — List, search, add member, suspend/activate work
+- [ ] /borrows — List, filter tabs (All/Active/Overdue/Returned) work
+- [ ] /borrows — "Borrow Book" modal shows only available books + active members
+- [ ] /borrows — "Return" button works, book becomes available again
+- [ ] /borrows — Overdue rows highlighted with red tint
+- [ ] Toast notifications appear on success and error
+- [ ] Frontend works via Docker (`make demo`) AND locally (`cd frontend && npm run dev`)
+
+---
+
+## Full Project — Combined Execution
+
+| Phase | Prompts | Time |
+|-------|---------|------|
+| Backend | 1 → 7 | ~20 min |
+| Frontend | F1 → F6 | ~22 min |
+| **Total** | **13 prompts** | **~42 min** |
+
+## Final Deliverable Checklist
+- [ ] `make demo` — one command starts everything
+- [ ] Backend API: http://localhost:8000/docs
+- [ ] Frontend UI: http://localhost:3000
+- [ ] All CRUD operations work end-to-end
+- [ ] Borrow rules enforced (can't borrow borrowed book, can't borrow as suspended member)
+- [ ] Overdue detection works
+- [ ] Tests pass: `make test`
+- [ ] README.md explains setup clearly
+- [ ] ARCHITECTURE.md explains design decisions
+- [ ] docs/api-examples.md has curl examples

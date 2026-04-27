@@ -535,3 +535,206 @@ class Base(DeclarativeBase):
         DateTime(timezone=True), server_default=func.now()
     )
 ```
+# Neighborhood Library — Frontend
+
+## Append to CLAUDE.md
+> Copy everything below this line into the bottom of your existing CLAUDE.md
+
+---
+
+## Frontend — Next.js App
+
+### Tech Stack
+- Next.js 14 (App Router)
+- TypeScript
+- Tailwind CSS
+- shadcn/ui components
+- Lucide React (icons)
+
+### Design Direction
+- **Tone**: Clean, professional, library-warm — not generic SaaS
+- **Color palette**: Warm neutrals (stone/amber) with green/amber/red status accents
+- **Typography**: Use `font-sans` (system stack) for body, keep it readable
+- **Layout**: Sidebar navigation + content area, desktop-first
+- **Character**: Subtle book/library warmth — not clinical, not playful
+
+### Frontend Structure
+```
+frontend/
+├── package.json
+├── next.config.ts
+├── tsconfig.json
+├── tailwind.config.ts
+├── postcss.config.mjs
+├── Dockerfile
+├── .env.example               # NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+├── devbox.json                # Node.js 20
+│
+└── src/
+    ├── app/
+    │   ├── layout.tsx          # Root layout with Sidebar
+    │   ├── page.tsx            # Dashboard
+    │   ├── books/
+    │   │   └── page.tsx        # Books management
+    │   ├── members/
+    │   │   └── page.tsx        # Members management
+    │   └── borrows/
+    │       └── page.tsx        # Borrows management
+    │
+    ├── components/
+    │   ├── layout/
+    │   │   └── Sidebar.tsx     # Navigation sidebar
+    │   ├── books/
+    │   │   ├── BookTable.tsx
+    │   │   └── BookFormModal.tsx
+    │   ├── members/
+    │   │   ├── MemberTable.tsx
+    │   │   └── MemberFormModal.tsx
+    │   └── borrows/
+    │       ├── BorrowTable.tsx
+    │       └── BorrowFormModal.tsx
+    │
+    ├── lib/
+    │   ├── api.ts              # Typed fetch wrapper
+    │   └── utils.ts            # Date formatting, status colors
+    │
+    └── types/
+        └── index.ts            # Matches backend Pydantic schemas
+```
+
+### TypeScript Types (Must Match Backend Schemas)
+```typescript
+// types/index.ts
+export interface Book {
+  id: string;
+  title: string;
+  author: string;
+  isbn: string | null;
+  publisher: string | null;
+  publication_year: number | null;
+  genre: string | null;
+  status: "available" | "borrowed" | "retired";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Member {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  address: string | null;
+  status: "active" | "inactive" | "suspended";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Borrow {
+  id: string;
+  book_id: string;
+  member_id: string;
+  borrowed_at: string;
+  due_date: string;
+  returned_at: string | null;
+  notes: string | null;
+  created_at: string;
+  book: Book;
+  member: Member;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  size: number;
+  pages: number;
+}
+```
+
+### API Client Pattern
+```typescript
+// lib/api.ts
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+
+async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, {
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    ...options,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.detail?.message || `API error: ${res.status}`);
+  }
+  return res.json();
+}
+```
+
+### Status Badge Colors
+```
+Books:    available → green    | borrowed → amber    | retired → gray
+Members:  active → green       | inactive → gray     | suspended → red
+Borrows:  active → blue        | overdue → red       | returned → green
+```
+
+### Pages Overview
+
+#### Dashboard (`/`)
+- 3 stat cards: Total Books, Active Members, Active Borrows
+- Overdue borrows alert (count + link to borrows page with overdue filter)
+- Recent activity: last 5 borrows
+
+#### Books (`/books`)
+- Table: title, author, isbn, genre, status badge, actions
+- Search bar (filters title/author)
+- Status filter dropdown (all/available/borrowed/retired)
+- "Add Book" button → opens modal with BookCreate form
+- Per-row actions: "Retire" button (only on available books)
+
+#### Members (`/members`)
+- Table: name, email, phone, status badge, actions
+- Search bar (filters name/email)
+- Status filter dropdown
+- "Add Member" button → modal
+- Per-row actions: Suspend/Activate/Deactivate buttons based on current status
+
+#### Borrows (`/borrows`)
+- Table: book title, member name, borrowed date, due date, status, actions
+- Filter tabs: All / Active / Overdue / Returned
+- "Borrow Book" button → modal (dropdown to select available book + active member)
+- Per-row "Return" button (only on active borrows)
+- Overdue rows highlighted with red/amber background
+
+### Frontend Conventions
+- Use `"use client"` directive on pages/components that use hooks (useState, useEffect)
+- All API calls in useEffect or event handlers, never in server components for this project
+- Show loading states (skeleton or spinner) while fetching
+- Show toast/alert on success/error after mutations (create, return, status change)
+- All forms validate required fields before submitting
+- After mutation, refetch the list to show updated data
+- Use `encodeURIComponent` for search params
+
+### Docker Setup (Frontend)
+```dockerfile
+# frontend/Dockerfile
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+EXPOSE 3000
+CMD ["npm", "start"]
+```
+
+### Devbox (Frontend)
+```json
+{
+  "packages": ["nodejs@20"],
+  "shell": {
+    "init_hook": [
+      "if [ ! -d node_modules ]; then npm install; fi",
+      "echo 'Frontend ready: npm run dev'"
+    ]
+  }
+}
+```
