@@ -235,3 +235,53 @@ All errors follow this format:
 | 409  | `BookAlreadyReturnedError` | Returning a borrow that is already closed |
 | 409  | `MemberNotActiveError` | Inactive or suspended member trying to borrow |
 | 422  | _(Pydantic)_ | Request body fails schema validation |
+
+---
+
+## Postman & Insomnia
+
+FastAPI automatically generates an OpenAPI spec — both tools can import it directly, saving you from writing collections by hand.
+
+### Import via OpenAPI URL (recommended)
+
+Start the server first (`make demo` or `make dev`), then:
+
+**Postman**
+1. Open Postman → **Import** (top-left)
+2. Select **Link** tab
+3. Paste: `http://localhost:8000/openapi.json`
+4. Click **Continue** → **Import**
+5. A collection named *Neighborhood Library API* appears with all endpoints pre-configured
+
+**Insomnia**
+1. Open Insomnia → **Create** → **Import**
+2. Select **From URL**
+3. Paste: `http://localhost:8000/openapi.json`
+4. Click **Fetch and Import**
+5. All endpoints are imported under a new collection
+
+### Set a base URL variable
+
+After importing, set a variable so you don't hardcode the host in every request:
+
+**Postman** — go to the collection → **Variables** tab → add:
+| Variable | Initial value | Current value |
+|----------|---------------|---------------|
+| `base_url` | `http://localhost:8000/api/v1` | `http://localhost:8000/api/v1` |
+
+**Insomnia** — go to **Manage Environments** → add:
+```json
+{
+  "base_url": "http://localhost:8000/api/v1"
+}
+```
+
+### Download the spec as a file
+
+If you prefer a local file instead of a URL:
+
+```bash
+curl -s http://localhost:8000/openapi.json -o openapi.json
+```
+
+Then import the saved `openapi.json` file using **Import → File** in either tool.

@@ -64,6 +64,9 @@ make dev          # start server on :8000
 
 - Swagger UI: **<http://localhost:8000/docs>**
 - ReDoc: **<http://localhost:8000/redoc>**
+- OpenAPI spec: **<http://localhost:8000/openapi.json>**
+
+Import the OpenAPI spec directly into Postman or Insomnia — see [docs/api-examples.md](docs/api-examples.md#postman--insomnia) for step-by-step instructions.
 
 ## Endpoints
 
