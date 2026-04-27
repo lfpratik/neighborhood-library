@@ -1,0 +1,44 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.15.0/.schema/devbox.schema.json",
+  "packages": [
+    "python@3.11",
+    "gnumake@latest"
+  ],
+  "shell": {
+    "init_hook": [
+      "echo '🚀 Neighborhood Library - Local Development'",
+      "echo ''",
+      "# Create virtual environment if it doesn't exist",
+      "if [ ! -d .venv ]; then",
+      "  echo '📦 Creating Python virtual environment...'",
+      "  make venv",
+      "fi",
+      "# Activate virtual environment",
+      "source .venv/bin/activate",
+      "# Install dependencies",
+      "echo '📦 Installing Python dependencies...'",
+      "make install",
+      "echo ''",
+      "echo '✅ Environment ready!'",
+      "echo ''",
+      "echo 'Python: '$(python --version)",
+      "echo 'Location: '$(which python)",
+      "echo ''",
+      "echo 'Quick Start:'",
+      "echo '  make demo   — Docker demo (build + migrate + seed)'",
+      "echo '  make dev    — Local dev server'",
+      "echo ''",
+      "echo 'Configure your .env file with the necessary environment variables:'",
+      "echo ''"
+    ],
+    "scripts": {
+      "start": "make dev",
+      "test": "make test",
+      "lint": "make lint",
+      "lint-fix": "make lint-fix",
+      "format": "make format",
+      "clean": "make clean",
+      "clean-all": "make clean-all"
+    }
+  }
+}

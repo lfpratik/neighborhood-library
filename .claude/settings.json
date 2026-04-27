@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python*)",
+      "Bash(pip install*)",
+      "Bash(alembic*)",
+      "Bash(make*)",
+      "Bash(docker*)",
+      "Bash(pytest*)",
+      "Bash(mkdir*)",
+      "Bash(touch*)",
+      "Bash(cat*)",
+      "Bash(ls*)",
+      "Bash(cp*)",
+      "Bash(mv*)"
+    ]
+  }
+}

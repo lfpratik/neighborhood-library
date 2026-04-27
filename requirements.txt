@@ -1,0 +1,21 @@
+# Core Framework (Latest stable versions)
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+
+# Database
+sqlalchemy
+psycopg2-binary
+alembic
+uuid-utils
+
+# Testing
+pytest
+pytest-asyncio
+pytest-cov
+httpx
+
+# Code Quality
+ruff
+mypy

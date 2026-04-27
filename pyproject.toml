@@ -1,0 +1,143 @@
+# ============================================================================
+# Project Configuration - All Python tools in one file
+# ============================================================================
+
+[project]
+name = "neighborhood-library"
+version = "1.0.0"
+description = "Library Management System with Clean Architecture"
+authors = [
+    {name = "Pratik Karanje", email = "pratikkaranje03@gmail.com"}
+]
+requires-python = ">=3.12"
+readme = "README.md"
+license = {text = "MIT"}
+
+# ============================================================================
+# Ruff Configuration (Linting + Formatting)
+# ============================================================================
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+indent-width = 4
+
+# Linting rules
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort (import sorting)
+    "N",      # pep8-naming
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+]
+
+ignore = [
+    "E501",   # Line too long (handled by formatter)
+    "B008",   # Do not perform function calls in argument defaults (FastAPI uses this)
+]
+
+fixable = ["ALL"]
+unfixable = []
+
+# Per-file ignores
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Unused imports OK in __init__
+"tests/**/*.py" = ["S101", "ARG001"]  # Allow assert and unused fixtures
+"migrations/**/*.py" = ["ALL"]  # Ignore linting in migrations
+
+# Import sorting (replaces isort)
+[tool.ruff.lint.isort]
+known-first-party = ["app", "test"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+
+# Formatting (replaces black)
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+# ============================================================================
+# Mypy Configuration (Type Checking)
+# ============================================================================
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Set to true for strict typing
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+check_untyped_defs = true
+
+# Ignore missing imports for third-party packages
+[[tool.mypy.overrides]]
+module = [
+    "sqlalchemy.*",
+    "alembic.*",
+]
+ignore_missing_imports = true
+
+# Relax rules for tests
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+# ============================================================================
+# Pytest Configuration
+# ============================================================================
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = [
+    "-ra",                    # Show summary of all test outcomes
+    "--strict-markers",       # Ensure all markers are defined
+    "--strict-config",        # Ensure config is valid
+    "--showlocals",          # Show local variables in tracebacks
+    "-v",                     # Verbose output
+]
+
+# Test markers
+markers = [
+    "unit: Unit tests (fast, no external dependencies)",
+    "integration: Integration tests (require database)",
+    "slow: Slow running tests",
+]
+
+# ============================================================================
+# Coverage Configuration
+# ============================================================================
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "tests/*",
+    "migrations/*",
+    "*/__init__.py",
+    "app/main.py",  # FastAPI app creation, tested via integration
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
