@@ -66,13 +66,13 @@ make dev          # start server on :8000
 
 ```bash
 cd frontend && devbox shell    # provisions Node 20, installs deps
-npm run dev                    # starts Next.js on :3000 with hot reload
+make dev                       # starts Next.js on :3000 with hot reload
 ```
 
 Or without Devbox:
 
 ```bash
-cd frontend && npm install && npm run dev
+cd frontend && make install && make dev
 ```
 
 The dev server proxies `/api/*` → `http://localhost:8000` so the backend can run separately.
@@ -140,8 +140,8 @@ Tests use `TestClient` (sync) against an in-memory SQLite database — no extern
 
 `make demo` and `make seed` both load:
 
-- **5 books**: Clean Code, Design Patterns, The Pragmatic Programmer (available); Refactoring, Design Patterns (borrowed); The Mythical Man-Month (retired)
-- **3 members**: Alice Johnson (active), Bob Smith (inactive), Charlie Brown (suspended)
-- **3 borrows**: 1 active (due in 9 days), 1 active overdue (6 days past due), 1 completed (returned)
+- **27 books**: 16 available · 8 borrowed · 3 retired — across genres (Software Engineering, DevOps, Computer Science, Data Engineering, Web Development, Software Architecture)
+- **12 members**: 7 active · 3 inactive · 2 suspended
+- **39 borrows**: 8 active (3 overdue) · 31 completed — distributed across all members
 
 See [docs/api-examples.md](docs/api-examples.md) for curl examples.
