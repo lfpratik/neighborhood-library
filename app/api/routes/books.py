@@ -29,7 +29,7 @@ def list_books(
     status: BookStatus | None = None,
     search: str | None = None,
     page: int = 1,
-    size: int = 20,
+    size: int = 10,
     service: BookService = Depends(get_book_service),
 ) -> PaginatedResponse[BookResponse]:
     """List books with optional status filter and search."""

@@ -30,7 +30,7 @@ def list_borrows(
     active: bool | None = None,
     overdue: bool | None = None,
     page: int = 1,
-    size: int = 20,
+    size: int = 10,
     service: BorrowService = Depends(get_borrow_service),
 ) -> PaginatedResponse[BorrowResponse]:
     """List borrows with optional filters."""

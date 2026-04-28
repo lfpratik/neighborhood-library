@@ -34,7 +34,7 @@ def list_members(
     status: MemberStatus | None = None,
     search: str | None = None,
     page: int = 1,
-    size: int = 20,
+    size: int = 10,
     service: MemberService = Depends(get_member_service),
 ) -> PaginatedResponse[MemberResponse]:
     """List members with optional status filter and search."""
