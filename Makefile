@@ -13,7 +13,7 @@ PORT := 8000
 .DEFAULT_GOAL := help
 
 # -------- Phony Targets --------
-.PHONY: help venv install install-force dev migration migrate seed seed-force test lint lint-fix format typecheck clean clean-all demo build run up down logs docker-seed docker-seed-force
+.PHONY: help venv install install-force dev migration migrate seed seed-force test lint lint-fix format typecheck clean clean-all demo build run up down logs docker-seed docker-seed-force frontend-dev frontend-build
 
 # -------- Help --------
 help:
@@ -132,11 +132,16 @@ demo:
 	@echo "► Step 2/4  Building Docker images..."
 	$(MAKE) build
 	@echo ""
-	@echo "► Step 3/4  Starting services (Postgres → migrations → FastAPI)..."
+	@echo "► Step 3/4  Starting services (Postgres → migrations → FastAPI → Next.js)..."
 	$(MAKE) up
 	@echo "Waiting for backend to be ready..."
 	@until docker-compose exec -T backend curl -sf http://localhost:8000/api/v1/health > /dev/null 2>&1; do \
 		printf '.'; sleep 3; \
+	done
+	@echo " ready!"
+	@echo "Waiting for frontend to be ready..."
+	@until curl -sf http://localhost:3000 > /dev/null 2>&1; do \
+		printf '.'; sleep 2; \
 	done
 	@echo " ready!"
 	@echo ""
@@ -146,6 +151,7 @@ demo:
 	@echo "╔══════════════════════════════════════════════╗"
 	@echo "║              Demo is ready!                  ║"
 	@echo "╠══════════════════════════════════════════════╣"
+	@echo "║  Frontend   http://localhost:3000            ║"
 	@echo "║  API base   http://localhost:8000/api/v1     ║"
 	@echo "║  Swagger UI http://localhost:8000/docs       ║"
 	@echo "║  ReDoc      http://localhost:8000/redoc      ║"
@@ -155,13 +161,15 @@ demo:
 	@echo "║   3 members (active / inactive / suspended)  ║"
 	@echo "║   3 borrows (active / overdue / returned)    ║"
 	@echo "╠══════════════════════════════════════════════╣"
-	@echo "║  make logs   — tail backend logs             ║"
-	@echo "║  make down   — stop everything               ║"
+	@echo "║  make logs           — tail backend logs     ║"
+	@echo "║  make frontend-dev   — local frontend dev    ║"
+	@echo "║  make down           — stop everything       ║"
 	@echo "╚══════════════════════════════════════════════╝"
 	@echo ""
 
 build:
-	docker-compose build
+	@test -f frontend/.env.docker || cp frontend/.env.example frontend/.env.docker
+	set -a && . ./frontend/.env.docker && set +a && docker-compose build
 
 run:
 	docker-compose up -d
@@ -198,3 +206,9 @@ docker-seed:
 docker-seed-force:
 	docker-compose exec -T backend python scripts/seed.py
 	docker-compose exec -T backend touch /tmp/.seeded
+
+frontend-dev:
+	cd frontend && npm run dev
+
+frontend-build:
+	cd frontend && npm run build

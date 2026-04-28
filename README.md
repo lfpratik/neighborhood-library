@@ -6,6 +6,7 @@ A REST API for managing a neighborhood library — books, members, and lending o
 
 - **Python 3.11** · **FastAPI** (sync) · **SQLAlchemy 2.0** (sync) · **PostgreSQL 15**
 - **Alembic** (migrations) · **Pydantic v2** · **pytest** (tests)
+- **Next.js 14** · **TypeScript** · **Tailwind CSS** · **shadcn/ui** (frontend)
 - **Docker Compose** (demo) · **Devbox** (local dev)
 
 ## Quick Start — Docker Demo
@@ -22,6 +23,7 @@ One command: builds images, runs migrations, seeds data, and prints all URLs whe
 ╔══════════════════════════════════════════════╗
 ║              Demo is ready!                  ║
 ╠══════════════════════════════════════════════╣
+║  Frontend   http://localhost:3000            ║
 ║  API base   http://localhost:8000/api/v1     ║
 ║  Swagger UI http://localhost:8000/docs       ║
 ║  ReDoc      http://localhost:8000/redoc      ║
@@ -59,6 +61,21 @@ make migrate      # run Alembic migrations
 make seed         # load sample data
 make dev          # start server on :8000
 ```
+
+## Local Frontend Development
+
+```bash
+cd frontend && devbox shell    # provisions Node 20, installs deps
+npm run dev                    # starts Next.js on :3000 with hot reload
+```
+
+Or without Devbox:
+
+```bash
+cd frontend && npm install && npm run dev
+```
+
+The dev server proxies `/api/*` → `http://localhost:8000` so the backend can run separately.
 
 ## API Documentation
 

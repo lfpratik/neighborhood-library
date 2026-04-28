@@ -1,0 +1,11 @@
+{
+  "packages": ["nodejs@20", "gnumake@latest"],
+  "shell": {
+    "init_hook": [
+      "echo 'Frontend — Neighborhood Library'",
+      "if [ ! -d node_modules ]; then echo 'Installing deps...'; npm install; fi",
+      "echo ''",
+      "echo 'Ready! Run: npm run dev'"
+    ]
+  }
+}
