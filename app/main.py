@@ -1,4 +1,7 @@
+import re
+
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -29,6 +32,17 @@ def _conflict_handler(request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(
         status_code=409,
         content={"detail": {"code": type(exc).__name__, "message": str(exc)}},
+    )
+
+
+def _validation_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    first = exc.errors()[0]
+    field = ".".join(str(loc) for loc in first["loc"] if loc != "body")
+    raw_msg = first.get("msg", "Validation error")
+    message = re.sub(r"^value error,\s*", "", raw_msg, flags=re.IGNORECASE)
+    return JSONResponse(
+        status_code=422,
+        content={"detail": {"code": "ValidationError", "message": f"{field}: {message}" if field else message}},
     )
 
 
@@ -68,6 +82,8 @@ def create_app() -> FastAPI:
     ]
     for exc_class in conflict:
         app.add_exception_handler(exc_class, _conflict_handler)
+
+    app.add_exception_handler(RequestValidationError, _validation_handler)
 
     return app
 
