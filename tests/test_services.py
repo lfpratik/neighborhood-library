@@ -140,11 +140,11 @@ def test_update_book_full(db_session):
 
 def test_update_member_partial(db_session):
     svc = member_service(db_session)
-    member = svc.create_member(MemberCreate(name="Alice", email="alice@example.com", phone="111"))
+    member = svc.create_member(MemberCreate(name="Alice", email="alice@example.com", phone="555-1234"))
     from app.api.schemas.member import MemberUpdate
 
-    updated = svc.update_member(member.id, MemberUpdate(phone="999"))
-    assert updated.phone == "999"
+    updated = svc.update_member(member.id, MemberUpdate(phone="555-9999"))
+    assert updated.phone == "555-9999"
     assert updated.name == "Alice"
     assert updated.email == "alice@example.com"
 
