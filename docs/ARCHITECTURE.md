@@ -67,6 +67,8 @@ A single `validate_book_status_transition(current, new)` function is the single 
 
 **UUID v7 primary keys** — time-sortable, globally unique, safe for distributed systems. Avoids the sequential-ID enumeration attack and gives natural ordering without an extra `ORDER BY created_at`.
 
+**Fixed default sort order** — list endpoints return results in a consistent, user-meaningful order: books by `title ASC`, members by `name ASC`, borrows by `borrowed_at DESC`. Sorting is applied at the repository layer and is not configurable via query params — the product decision is that these are the only orderings that make sense for a library UI.
+
 **No DELETE endpoints** — lifecycle is managed by status fields. Books and members are never hard-deleted. This preserves audit trail, avoids FK cascade complexity, and lets overdue records remain queryable after a member is suspended.
 
 **`returned_at IS NULL` as the "active borrow" sentinel** — cleaner than a boolean `is_active` flag that would need to stay in sync. A single partial index on `(book_id, returned_at)` answers "is this book currently borrowed?" efficiently.
@@ -92,7 +94,7 @@ A single `validate_book_status_transition(current, new)` function is the single 
 Multiple rows with the same `(title, author)` are permitted. A neighborhood library can own several physical copies of the same book; each copy is a distinct borrowable item that needs its own lifecycle. The `isbn` unique constraint covers the most common accidental-duplicate case (ISBN is unique when present). No service-layer deduplication check was added — this is a deliberate choice, not an oversight.
 
 ### Duplicate Members Are Prevented by Email (Intentional)
-`email` carries a `UNIQUE` constraint at the database level. No additional service-layer check is needed; the database rejects duplicates and FastAPI surfaces the integrity error as a 422.
+`email` carries a `UNIQUE` constraint at the database level. On **create**, the database rejects duplicates and FastAPI surfaces the integrity error as a 422. On **update** (`PUT`/`PATCH`), `MemberService.update_member` performs an explicit pre-check — if the new email is already owned by a different member it raises `ValueError` → 409, giving a structured error response instead of a raw DB exception.
 
 ### Suspended/Inactive Members Keep Their Active Borrows (Intentional)
 Deactivating or suspending a member does **not** auto-return their outstanding books. The books stay in `borrowed` status. This is intentional: forcing a return would corrupt the audit trail. Staff must handle outstanding books manually before suspending a member in practice.

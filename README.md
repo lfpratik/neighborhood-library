@@ -89,32 +89,34 @@ Import the OpenAPI spec directly into Postman or Insomnia — see [docs/api-exam
 
 ### Books
 
-| Method | Endpoint                   | Status Codes    | Description        |
-|--------|----------------------------|-----------------|--------------------|
-| POST   | /api/v1/books              | 201, 422        | Add new book       |
-| GET    | /api/v1/books              | 200             | List/search books  |
-| GET    | /api/v1/books/{id}         | 200, 404        | Get book detail    |
-| PUT    | /api/v1/books/{id}         | 200, 404, 422   | Update book info   |
-| PATCH  | /api/v1/books/{id}/status  | 200, 404, 409   | Change book status |
+| Method | Endpoint                   | Status Codes    | Description                      |
+|--------|----------------------------|-----------------|----------------------------------|
+| POST   | /api/v1/books              | 201, 422        | Add new book                     |
+| GET    | /api/v1/books              | 200             | List/search books (sorted by title) |
+| GET    | /api/v1/books/{id}         | 200, 404        | Get book detail                  |
+| PUT    | /api/v1/books/{id}         | 200, 404, 422   | Full replace (all fields)        |
+| PATCH  | /api/v1/books/{id}         | 200, 404, 422   | Partial update (changed fields)  |
+| PATCH  | /api/v1/books/{id}/status  | 200, 404, 409   | Change book status               |
 
 ### Members
 
-| Method | Endpoint                     | Status Codes    | Description          |
-|--------|------------------------------|-----------------|----------------------|
-| POST   | /api/v1/members              | 201, 422        | Register member      |
-| GET    | /api/v1/members              | 200             | List/search members  |
-| GET    | /api/v1/members/{id}         | 200, 404        | Get member detail    |
-| PUT    | /api/v1/members/{id}         | 200, 404, 422   | Update member info   |
-| PATCH  | /api/v1/members/{id}/status  | 200, 404, 409   | Change member status |
+| Method | Endpoint                     | Status Codes    | Description                        |
+|--------|------------------------------|-----------------|------------------------------------|
+| POST   | /api/v1/members              | 201, 422        | Register member                    |
+| GET    | /api/v1/members              | 200             | List/search members (sorted by name) |
+| GET    | /api/v1/members/{id}         | 200, 404        | Get member detail                  |
+| PUT    | /api/v1/members/{id}         | 200, 404, 422   | Full replace (all fields)          |
+| PATCH  | /api/v1/members/{id}         | 200, 404, 422   | Partial update (changed fields)    |
+| PATCH  | /api/v1/members/{id}/status  | 200, 404, 409   | Change member status               |
 
 ### Borrows
 
-| Method | Endpoint                      | Status Codes        | Description      |
-|--------|-------------------------------|---------------------|------------------|
-| POST   | /api/v1/borrows               | 201, 404, 409, 422  | Borrow a book    |
-| GET    | /api/v1/borrows               | 200                 | List borrows     |
-| GET    | /api/v1/borrows/{id}          | 200, 404            | Get borrow       |
-| PATCH  | /api/v1/borrows/{id}/return   | 200, 404, 409       | Return a book    |
+| Method | Endpoint                      | Status Codes        | Description                              |
+|--------|-------------------------------|---------------------|------------------------------------------|
+| POST   | /api/v1/borrows               | 201, 404, 409, 422  | Borrow a book                            |
+| GET    | /api/v1/borrows               | 200                 | List borrows (sorted by borrowed_at desc)|
+| GET    | /api/v1/borrows/{id}          | 200, 404            | Get borrow                               |
+| PATCH  | /api/v1/borrows/{id}/return   | 200, 404, 409       | Return a book                            |
 
 ### System
 

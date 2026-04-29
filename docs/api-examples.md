@@ -38,10 +38,25 @@ curl -s "http://localhost:8000/api/v1/books?search=fowler" | jq .
 curl -s "http://localhost:8000/api/v1/books/<book_id>" | jq .
 ```
 
-### Update book info
+### Replace all book fields (PUT)
 
 ```bash
 curl -s -X PUT http://localhost:8000/api/v1/books/<book_id> \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Clean Code",
+    "author": "Robert C. Martin",
+    "isbn": "9780132350884",
+    "publisher": "Prentice Hall",
+    "publication_year": 2008,
+    "genre": "Software Engineering"
+  }' | jq .
+```
+
+### Partially update book fields (PATCH)
+
+```bash
+curl -s -X PATCH http://localhost:8000/api/v1/books/<book_id> \
   -H "Content-Type: application/json" \
   -d '{"publisher": "Prentice Hall", "publication_year": 2008}' | jq .
 ```
@@ -86,6 +101,27 @@ curl -s "http://localhost:8000/api/v1/members?search=alice" | jq .
 
 ```bash
 curl -s "http://localhost:8000/api/v1/members/<member_id>" | jq .
+```
+
+### Replace all member fields (PUT)
+
+```bash
+curl -s -X PUT http://localhost:8000/api/v1/members/<member_id> \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Alice Johnson",
+    "email": "alice@example.com",
+    "phone": "555-9999",
+    "address": "123 Main St"
+  }' | jq .
+```
+
+### Partially update member fields (PATCH)
+
+```bash
+curl -s -X PATCH http://localhost:8000/api/v1/members/<member_id> \
+  -H "Content-Type: application/json" \
+  -d '{"phone": "555-9999"}' | jq .
 ```
 
 ### Suspend a member
@@ -234,6 +270,7 @@ All errors follow this format:
 | 409  | `BookAlreadyBorrowedError` | Book already has an active borrow record |
 | 409  | `BookAlreadyReturnedError` | Returning a borrow that is already closed |
 | 409  | `MemberNotActiveError` | Inactive or suspended member trying to borrow |
+| 409  | `ValueError` | Updating a member's email to one already in use |
 | 422  | _(Pydantic)_ | Request body fails schema validation |
 
 ---
