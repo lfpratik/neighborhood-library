@@ -31,6 +31,9 @@ class BookRepository:
         items = self.db.scalars(stmt.order_by(Book.title).offset((page - 1) * size).limit(size)).all()
         return list(items), total or 0
 
+    def get_by_isbn(self, isbn: str) -> Book | None:
+        return self.db.scalar(select(Book).where(Book.isbn == isbn))
+
     def create(self, data: dict) -> Book:
         book = Book(**data)
         self.db.add(book)

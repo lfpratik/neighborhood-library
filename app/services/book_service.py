@@ -17,6 +17,8 @@ class BookService:
 
     def create_book(self, data: BookCreate) -> Book:
         """Add a new book to the library."""
+        if data.isbn and self.repo.get_by_isbn(data.isbn) is not None:
+            raise ValueError(f"ISBN '{data.isbn}' is already registered")
         book = self.repo.create(data.model_dump())
         self.repo.db.commit()
         self.repo.db.refresh(book)
@@ -43,6 +45,10 @@ class BookService:
         """Replace book information or Partially update mutable book fields (only provided fields)."""
         self.get_book(book_id)
         updates = data.model_dump(exclude_unset=True)
+        if "isbn" in updates and updates["isbn"]:
+            existing = self.repo.get_by_isbn(updates["isbn"])
+            if existing is not None and str(existing.id) != str(book_id):
+                raise ValueError(f"ISBN '{updates['isbn']}' is already registered")
         book = self.repo.update(book_id, updates)
         self.repo.db.commit()
         self.repo.db.refresh(book)
