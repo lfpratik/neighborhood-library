@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { Eye } from "lucide-react";
 import { toast } from "sonner";
 import {
   Table,
@@ -61,7 +63,7 @@ export default function BorrowTable({ borrows, onRefresh }: Props) {
             <TableHead>Borrowed</TableHead>
             <TableHead>Due Date</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead className="w-36">Actions</TableHead>
+            <TableHead className="w-48">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -69,8 +71,16 @@ export default function BorrowTable({ borrows, onRefresh }: Props) {
             const status = getBorrowStatus(borrow);
             return (
               <TableRow key={borrow.id} className={status === "overdue" ? "bg-red-50" : ""}>
-                <TableCell className="font-medium text-stone-800">{borrow.book.title}</TableCell>
-                <TableCell className="text-stone-600">{borrow.member.name}</TableCell>
+                <TableCell className="font-medium">
+                  <Link href={`/books/${borrow.book_id}`} className="text-blue-600 hover:underline">
+                    {borrow.book.title}
+                  </Link>
+                </TableCell>
+                <TableCell>
+                  <Link href={`/members/${borrow.member_id}`} className="text-blue-600 hover:underline">
+                    {borrow.member.name}
+                  </Link>
+                </TableCell>
                 <TableCell className="text-stone-500">{formatDate(borrow.borrowed_at)}</TableCell>
                 <TableCell className="text-stone-500">{formatDate(borrow.due_date)}</TableCell>
                 <TableCell>
@@ -79,20 +89,27 @@ export default function BorrowTable({ borrows, onRefresh }: Props) {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  {status !== "returned" ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={returning === borrow.id}
-                      onClick={() => handleReturn(borrow)}
-                    >
-                      {returning === borrow.id ? "Returning…" : "Return"}
-                    </Button>
-                  ) : (
-                    <span className="text-sm text-stone-400">
-                      {formatDate(borrow.returned_at!)}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {status !== "returned" ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={returning === borrow.id}
+                        onClick={() => handleReturn(borrow)}
+                      >
+                        {returning === borrow.id ? "Returning…" : "Return"}
+                      </Button>
+                    ) : (
+                      <span className="text-sm text-stone-400">
+                        {formatDate(borrow.returned_at!)}
+                      </span>
+                    )}
+                    <Link href={`/borrows/${borrow.id}`}>
+                      <Button size="sm" variant="ghost" className="p-1">
+                        <Eye className="h-4 w-4 text-stone-500" />
+                      </Button>
+                    </Link>
+                  </div>
                 </TableCell>
               </TableRow>
             );

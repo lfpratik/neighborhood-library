@@ -59,12 +59,23 @@ def get_book(
 
 
 @router.put("/{book_id}")
+def replace_book(
+    book_id: UUID,
+    data: BookUpdate,
+    service: BookService = Depends(get_book_service),
+) -> BookResponse:
+    """Replace book information."""
+    book = service.update_book(book_id, data)
+    return BookResponse.model_validate(book)
+
+
+@router.patch("/{book_id}")
 def update_book(
     book_id: UUID,
     data: BookUpdate,
     service: BookService = Depends(get_book_service),
 ) -> BookResponse:
-    """Update book information."""
+    """Partially update book information (only provided fields)."""
     book = service.update_book(book_id, data)
     return BookResponse.model_validate(book)
 

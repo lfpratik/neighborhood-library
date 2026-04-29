@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import {
   Table,
@@ -61,7 +62,11 @@ export default function BookTable({ books, onRefresh }: Props) {
         <TableBody>
           {books.map((book) => (
             <TableRow key={book.id}>
-              <TableCell className="font-medium text-stone-800">{book.title}</TableCell>
+              <TableCell className="font-medium">
+                <Link href={`/books/${book.id}`} className="text-blue-600 hover:underline">
+                  {book.title}
+                </Link>
+              </TableCell>
               <TableCell className="text-stone-600">{book.author}</TableCell>
               <TableCell className="text-stone-500">{book.isbn ?? "—"}</TableCell>
               <TableCell className="text-stone-500">{book.genre ?? "—"}</TableCell>

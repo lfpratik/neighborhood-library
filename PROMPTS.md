@@ -738,6 +738,340 @@ Verify:
 
 ---
 
+## Prompt F7 — Detail Pages (View + Edit)
+
+```
+Read CLAUDE.md "Frontend — Pages Overview" section for detail page specs.
+Follow existing component patterns from books/page.tsx, members/page.tsx, borrows/page.tsx.
+
+## 1. Backend — Add PATCH endpoints for partial updates
+
+Add PATCH routes to the existing backend (alongside the existing PUT):
+
+app/api/routes/books.py — add new endpoint:
+- PATCH "/{book_id}" → accepts BookUpdate schema (all fields optional), calls service.patch_book()
+- Returns 200 + BookResponse
+- This is separate from PATCH "/{book_id}/status" which already exists
+
+app/api/routes/members.py — add new endpoint:
+- PATCH "/{member_id}" → accepts MemberUpdate schema (all fields optional), calls service.patch_member()
+- Returns 200 + MemberResponse
+
+app/services/book_service.py — add patch_book() method:
+- Same as update_book() but uses exclude_unset=True to only update provided fields
+- Validates book exists (BookNotFoundError if not)
+
+app/services/member_service.py — add patch_member() method:
+- Same pattern as patch_book()
+- If email is being changed, check for duplicates
+
+## 2. API Client — Add functions to frontend/src/lib/api.ts:
+
+- getBook(id: string) → Book                     // GET /books/{id}
+- patchBook(id: string, data) → Book             // PATCH /books/{id} (partial update, only changed fields)
+- getMember(id: string) → Member                  // GET /members/{id}
+- patchMember(id: string, data) → Member          // PATCH /members/{id} (partial update, only changed fields)
+- getBorrow(id: string) → Borrow                  // GET /borrows/{id}
+
+IMPORTANT: patchBook and patchMember use HTTP method PATCH (not PUT).
+They send only the fields that changed, not the entire object.
+
+## 2. Shared Components
+
+CREATE frontend/src/components/shared/DetailField.tsx:
+- Reusable label-value display component
+- Props: label (string), value (string | ReactNode)
+- Renders: label in muted small text (text-sm text-muted-foreground), value below in normal text
+- Used across all 3 detail pages for consistent layout
+
+CREATE frontend/src/components/shared/BackLink.tsx:
+- Reusable "← Back to {page}" link
+- Props: href (string), label (string)
+- Uses next/link with lucide ArrowLeft icon
+- Styled: text-sm text-muted-foreground hover:text-foreground
+
+## 3. Book Detail Page — frontend/src/app/books/[id]/page.tsx
+
+"use client" page with useParams() to get book ID.
+
+TWO MODES: View mode (default) and Edit mode (toggle via "Edit" button).
+
+**View Mode:**
+- BackLink to /books
+- Page header: book title (text-2xl bold) + status Badge + "Edit" button (outline variant)
+- shadcn Card with DetailField pairs:
+  - Title, Author, ISBN (or "—"), Publisher (or "—"), Publication Year (or "—"), Genre (or "—")
+  - Status with colored Badge
+  - Created: formatDate(), Last Updated: formatDate()
+- Status action buttons below the card (only show relevant):
+  - If available: "Retire Book" button (destructive variant)
+  - If borrowed: text "Currently Borrowed" (muted)
+  - If retired: text "This book is retired" (muted)
+- Retire calls updateBookStatus(id, "retired"), toast, refetch
+- "Borrow History" section below:
+  - Fetch GET /borrows?book_id={id}&size=50
+  - shadcn Table: Member Name, Borrowed Date, Due Date, Status (Active/Overdue/Returned badge), Returned Date
+  - If no borrows: "No borrow history" message
+
+**Edit Mode:**
+- Same card layout but DetailField values become shadcn Input/fields
+- Editable: title, author, isbn, publisher, publication_year (number input), genre
+- NOT editable: status, id, created_at, updated_at (still shown as read-only DetailFields)
+- Pre-fill all inputs with current book data
+- "Save" button (default variant): calls patchBook(id, changedFields) using PATCH, toast("Book updated"), switch to view mode, refetch
+- "Cancel" button (outline variant): discard changes, switch to view mode
+- Only send fields that actually changed (compare with original)
+
+**Loading:** Skeleton card while fetching.
+**Error:** If 404, show "Book not found" message with BackLink to /books.
+
+## 4. Member Detail Page — frontend/src/app/members/[id]/page.tsx
+
+Same two-mode pattern as Book Detail.
+
+**View Mode:**
+- BackLink to /members
+- Header: member name + status Badge + "Edit" button
+- Card with DetailFields: Name, Email, Phone (or "—"), Address (or "—"), Status, Created, Last Updated
+- Status action buttons:
+  - active: "Suspend" (destructive) + "Deactivate" (secondary)
+  - inactive: "Activate" (default)
+  - suspended: "Activate" (default)
+  - Each calls updateMemberStatus(id, newStatus), toast, refetch
+- "Active Borrows" section:
+  - Fetch GET /borrows?member_id={id}&active=true&size=50
+  - Table: Book Title (link to /books/{book_id}), Borrowed Date, Due Date, Status badge
+  - If none: "No active borrows"
+- "Borrow History" section:
+  - Fetch GET /borrows?member_id={id}&size=50
+  - Table: Book Title, Borrowed, Due, Returned (or Active/Overdue badge)
+
+**Edit Mode:**
+- Editable: name, email, phone, address (textarea for address)
+- NOT editable: status, id, dates
+- Save calls patchMember(id, changedFields) using PATCH, toast, view mode, refetch
+- Cancel discards
+
+**Loading/Error:** Same pattern as book detail.
+
+## 5. Borrow Detail Page — frontend/src/app/borrows/[id]/page.tsx
+
+**Read-only. No edit mode.**
+
+- BackLink to /borrows
+- Header: "Borrow Details" + status Badge (Active/Overdue/Returned)
+- shadcn Card with DetailFields:
+  - Book: title + " by " + author (as a next/link to /books/{book_id})
+  - Member: name + " (" + email + ")" (as a next/link to /members/{member_id})
+  - Borrowed At: formatDateTime()
+  - Due Date: formatDateTime()
+  - Returned At: formatDateTime() or "Not yet returned" (muted text)
+  - Notes: text or "—"
+  - Created: formatDate()
+- If overdue (active + past due): amber/red alert banner below card
+  - "This book is X days overdue" (calculate days = Math.ceil((Date.now() - due_date) / 86400000))
+  - AlertTriangle icon from lucide
+- Action section:
+  - If active or overdue: "Return Book" button → calls returnBorrow(id), toast("Book returned"), refetch
+  - If returned: green text "Returned on {formatDate(returned_at)}"
+
+**Loading/Error:** Same pattern.
+
+## 6. Update List Pages — Add Navigation Links
+
+UPDATE frontend/src/components/books/BookTable.tsx:
+- Make the Title cell a next/link to /books/{book.id}
+- Style: text-blue-600 hover:underline (or use primary color)
+
+UPDATE frontend/src/components/members/MemberTable.tsx:
+- Make the Name cell a next/link to /members/{member.id}
+
+UPDATE frontend/src/components/borrows/BorrowTable.tsx:
+- Make Book Title a next/link to /books/{borrow.book_id}
+- Make Member Name a next/link to /members/{borrow.member_id}
+- Add "View" link/button in Actions column → /borrows/{borrow.id} (use lucide Eye icon)
+
+Verify:
+- Click book title in table → /books/{id} → shows details + borrow history
+- Click "Edit" → fields become inputs → save uses PATCH → updates book → back to view mode
+- Click member name → /members/{id} → shows details + active borrows
+- "View" on borrow → /borrows/{id} → full details with links to book and member
+- Return button on borrow detail works, book status changes to available
+- Retire button on book detail works
+- Suspend/Activate on member detail works
+- PATCH sends only changed fields (verify in browser Network tab)
+- 404 page shows for invalid IDs
+- Back links navigate correctly
+```
+
+---
+
+## Prompt F8 — Fines / Penalty System (OPTIONAL)
+
+> Only implement this if you have time and want to impress. Skip otherwise.
+
+```
+Read CLAUDE.md "Optional Features — Fines / Penalty System" section.
+
+This is a new feature addition. Follow existing patterns in the codebase.
+
+## 1. Domain Layer
+
+CREATE app/domain/fine.py:
+- DAILY_FINE_RATE = Decimal("0.50")
+- FineNotFoundError, FineAlreadyPaidError exceptions
+- calculate_fine(due_date, returned_at) → Decimal (0.00 if not overdue, else days * rate)
+- validate_fine_unpaid(paid_at) → raises FineAlreadyPaidError if already paid
+
+UPDATE app/domain/__init__.py:
+- Re-export all fine domain objects
+
+## 2. Database Layer
+
+CREATE app/database/models/fine.py:
+- class Fine(Base): id, borrow_id (FK → borrows.id), amount (Numeric(10,2)), reason (String 255), paid_at (nullable DateTime), created_at
+- relationship: borrow = relationship("Borrow", back_populates="fine")
+
+UPDATE app/database/models/borrow.py:
+- Add: fine = relationship("Fine", back_populates="borrow", uselist=False)
+
+UPDATE app/database/models/__init__.py:
+- Import Fine model
+
+CREATE app/database/repositories/fine_repository.py:
+- get_by_id, get_by_borrow_id, get_by_member_id (join through borrows), create, mark_paid
+
+## 3. Service Layer
+
+CREATE app/services/fine_service.py:
+- get_fine(fine_id) → Fine
+- get_member_fines(member_id, page, size) → tuple[list[Fine], int]
+- pay_fine(fine_id) → Fine (validate unpaid first)
+
+UPDATE app/services/borrow_service.py:
+- In return_book(): after setting returned_at, check if overdue
+- If overdue: call calculate_fine(), create fine record via fine_repo
+- Inject fine_repo into BorrowService
+
+## 4. API Layer
+
+CREATE app/api/schemas/fine.py:
+- FineResponse: id, borrow_id, amount, reason, paid_at, created_at. ConfigDict(from_attributes=True)
+
+CREATE app/api/routes/fines.py:
+- GET /members/{member_id}/fines → list fines for a member (paginated)
+- GET /fines/{fine_id} → get fine detail
+- PATCH /fines/{fine_id}/pay → mark as paid (200 or 409 if already paid)
+
+UPDATE app/main.py:
+- Include fines router
+- Add FineNotFoundError → 404, FineAlreadyPaidError → 409 exception handlers
+
+UPDATE app/dependencies.py:
+- Add get_fine_repository, get_fine_service
+
+## 5. Generate Alembic migration for fines table
+
+## 6. Update seed data:
+- The overdue borrow (Alice → Design Patterns) should now have a fine record when returned
+- Add a script or note showing how fines are auto-created on return
+
+Verify:
+- Return an overdue book → fine auto-created with correct amount
+- GET /members/{alice_id}/fines → shows the fine
+- PATCH /fines/{id}/pay → marks as paid
+- PATCH /fines/{id}/pay again → 409 already paid
+- Return a non-overdue book → no fine created
+```
+
+---
+
+## Prompt F9 — Reservations / Hold System (OPTIONAL)
+
+> Only implement this if you have time and want to impress. Skip otherwise.
+
+```
+Read CLAUDE.md "Optional Features — Reservations / Hold System" section.
+
+This is a new feature addition. Follow existing patterns.
+
+## 1. Domain Layer
+
+UPDATE app/domain/book.py:
+- Add RESERVED = "reserved" to BookStatus enum
+- Update BOOK_STATUS_TRANSITIONS:
+  - AVAILABLE can now transition to [BORROWED, RESERVED, RETIRED]
+  - RESERVED can transition to [BORROWED, AVAILABLE] (pickup or cancel/expire)
+
+CREATE app/domain/reservation.py:
+- HOLD_PERIOD_DAYS = 3
+- ReservationNotFoundError, ReservationExpiredError, ReservationAlreadyFulfilledError
+- calculate_expiry(reserved_at) → datetime
+- validate_reservation_active(fulfilled_at, cancelled_at, expires_at) → raises if not active
+
+UPDATE app/domain/__init__.py:
+- Re-export reservation domain objects
+
+## 2. Database Layer
+
+CREATE app/database/models/reservation.py:
+- class Reservation(Base): id, book_id (FK), member_id (FK), reserved_at, expires_at, fulfilled_at (nullable), cancelled_at (nullable), created_at
+- relationships: book, member
+
+UPDATE app/database/models/__init__.py:
+- Import Reservation model
+
+CREATE app/database/repositories/reservation_repository.py:
+- get_by_id, get_active_by_book_id, get_all (with filters), create, fulfil, cancel
+
+## 3. Service Layer
+
+CREATE app/services/reservation_service.py:
+- reserve_book(book_id, member_id) → Reservation
+  - Validate: book exists, book available, member exists, member active
+  - Set book.status = "reserved"
+  - Calculate expires_at
+- cancel_reservation(reservation_id) → Reservation
+  - Set cancelled_at, set book.status = "available"
+- fulfil_reservation(reservation_id) → handled by borrow flow
+
+UPDATE app/services/borrow_service.py:
+- In borrow_book(): if book.status == "reserved", verify the borrowing member matches the reservation
+  - If match: fulfil the reservation (set fulfilled_at), proceed with borrow
+  - If no match: raise BookNotAvailableError("Book is reserved for another member")
+
+## 4. API Layer
+
+CREATE app/api/schemas/reservation.py:
+- ReservationCreate: book_id, member_id
+- ReservationResponse: all fields + book + member
+
+CREATE app/api/routes/reservations.py:
+- POST /reservations → reserve a book (201)
+- GET /reservations → list (with filters: member_id, book_id, active)
+- PATCH /reservations/{id}/cancel → cancel (200 or 409)
+
+UPDATE app/main.py:
+- Include reservations router
+- Add reservation exception handlers
+
+UPDATE app/dependencies.py:
+- Add reservation repo + service dependencies
+
+## 5. Generate Alembic migration
+
+## 6. Update seed data:
+- Add 1 active reservation (available book reserved by active member)
+
+Verify:
+- POST /reservations with available book → book status becomes "reserved"
+- POST /borrows with reserved book by same member → works, reservation fulfilled
+- POST /borrows with reserved book by different member → 409
+- PATCH /reservations/{id}/cancel → book becomes available again
+```
+
+---
+
 ## Frontend Execution Summary
 
 | Step | Prompt | Model | Expected Time |
@@ -750,20 +1084,31 @@ Verify:
 | F5 | Borrows page | Sonnet | ~4 min |
 | — | `/clear` | — | — |
 | F6 | Docker + Devbox wiring | Sonnet | ~3 min |
+| F7 | Detail pages (view + edit via PATCH) | Sonnet | ~5 min |
+| — | `/clear` | — | — |
+| F8 | Fines system (OPTIONAL) | Sonnet | ~5 min |
+| F9 | Reservations system (OPTIONAL) | Sonnet | ~5 min |
 
-**Total: ~22 minutes for a polished, functional frontend.**
+**Core: ~27 minutes. With optional features: ~37 minutes.**
 
 ## Frontend Post-Build Checklist
 - [ ] `make demo` starts all 3 services (db, backend, frontend)
 - [ ] http://localhost:3000 — Dashboard loads with stats and overdue alert
 - [ ] /books — List, search, filter, add book, retire book all work
+- [ ] /books/{id} — Detail view, **edit via PATCH** works, retire works
+- [ ] /books/{id} — Borrow history table shows borrows for this book
 - [ ] /members — List, search, add member, suspend/activate work
+- [ ] /members/{id} — Detail view, **edit via PATCH** works, status changes work
 - [ ] /borrows — List, filter tabs (All/Active/Overdue/Returned) work
 - [ ] /borrows — "Borrow Book" modal shows only available books + active members
-- [ ] /borrows — "Return" button works, book becomes available again
-- [ ] /borrows — Overdue rows highlighted with red tint
+- [ ] /borrows/{id} — Read-only detail, return button works, overdue alert shows
+- [ ] PATCH sends only changed fields (verify in browser Network tab)
+- [ ] Clicking titles/names in tables navigates to detail pages
+- [ ] 404 handling works for invalid IDs
 - [ ] Toast notifications appear on success and error
 - [ ] Frontend works via Docker (`make demo`) AND locally (`cd frontend && npm run dev`)
+- [ ] (OPTIONAL) Fines auto-created when returning overdue books
+- [ ] (OPTIONAL) Reservations hold books for specific members
 
 ---
 
@@ -772,16 +1117,20 @@ Verify:
 | Phase | Prompts | Time |
 |-------|---------|------|
 | Backend | 1 → 7 | ~20 min |
-| Frontend | F1 → F6 | ~22 min |
-| **Total** | **13 prompts** | **~42 min** |
+| Frontend (core) | F1 → F7 | ~27 min |
+| Frontend (optional) | F8 + F9 | ~10 min |
+| **Total (core)** | **14 prompts** | **~47 min** |
+| **Total (with optional)** | **16 prompts** | **~57 min** |
 
 ## Final Deliverable Checklist
 - [ ] `make demo` — one command starts everything
 - [ ] Backend API: http://localhost:8000/docs
 - [ ] Frontend UI: http://localhost:3000
 - [ ] All CRUD operations work end-to-end
+- [ ] Detail pages with **edit via PATCH** for books and members
+- [ ] Read-only borrow detail with linked book/member
 - [ ] Borrow rules enforced (can't borrow borrowed book, can't borrow as suspended member)
-- [ ] Overdue detection works
+- [ ] Overdue detection works (list page + detail page)
 - [ ] Tests pass: `make test`
 - [ ] README.md explains setup clearly
 - [ ] ARCHITECTURE.md explains design decisions

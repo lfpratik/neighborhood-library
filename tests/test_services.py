@@ -116,6 +116,59 @@ def test_return_already_returned(db_session):
         borrow_service(db_session).return_book(borrow.id)
 
 
+def test_update_book_partial(db_session):
+    svc = book_service(db_session)
+    book = svc.create_book(BookCreate(title="Original", author="Author", genre="Sci-Fi"))
+    from app.api.schemas.book import BookUpdate
+
+    updated = svc.update_book(book.id, BookUpdate(title="Updated Title"))
+    assert updated.title == "Updated Title"
+    assert updated.author == "Author"
+    assert updated.genre == "Sci-Fi"
+
+
+def test_update_book_full(db_session):
+    svc = book_service(db_session)
+    book = svc.create_book(BookCreate(title="Original", author="Author"))
+    from app.api.schemas.book import BookUpdate
+
+    updated = svc.update_book(book.id, BookUpdate(title="New", author="New Author", genre="Drama"))
+    assert updated.title == "New"
+    assert updated.author == "New Author"
+    assert updated.genre == "Drama"
+
+
+def test_update_member_partial(db_session):
+    svc = member_service(db_session)
+    member = svc.create_member(MemberCreate(name="Alice", email="alice@example.com", phone="111"))
+    from app.api.schemas.member import MemberUpdate
+
+    updated = svc.update_member(member.id, MemberUpdate(phone="999"))
+    assert updated.phone == "999"
+    assert updated.name == "Alice"
+    assert updated.email == "alice@example.com"
+
+
+def test_update_member_duplicate_email(db_session):
+    svc = member_service(db_session)
+    svc.create_member(MemberCreate(name="Alice", email="alice@example.com"))
+    bob = svc.create_member(MemberCreate(name="Bob", email="bob@example.com"))
+    from app.api.schemas.member import MemberUpdate
+
+    with pytest.raises(ValueError, match="already registered"):
+        svc.update_member(bob.id, MemberUpdate(email="alice@example.com"))
+
+
+def test_update_member_same_email_no_conflict(db_session):
+    svc = member_service(db_session)
+    member = svc.create_member(MemberCreate(name="Alice", email="alice@example.com"))
+    from app.api.schemas.member import MemberUpdate
+
+    updated = svc.update_member(member.id, MemberUpdate(email="alice@example.com", name="Alice B"))
+    assert updated.email == "alice@example.com"
+    assert updated.name == "Alice B"
+
+
 def test_book_status_transition_retire(db_session):
     svc = book_service(db_session)
     book = svc.create_book(BookCreate(title="Old Book", author="Someone"))

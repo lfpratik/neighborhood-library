@@ -84,22 +84,24 @@ app/
 ### Endpoints
 
 #### Books
-| Method | Endpoint                    | Status Codes        | Description           |
-|--------|----------------------------|---------------------|-----------------------|
-| POST   | /api/v1/books              | 201, 422            | Add new book          |
-| GET    | /api/v1/books              | 200                 | List/search books     |
-| GET    | /api/v1/books/{id}         | 200, 404            | Get book detail       |
-| PUT    | /api/v1/books/{id}         | 200, 404, 422       | Update book info      |
-| PATCH  | /api/v1/books/{id}/status  | 200, 404, 409       | Change book status    |
+| Method | Endpoint                    | Status Codes        | Description                |
+|--------|----------------------------|---------------------|----------------------------|
+| POST   | /api/v1/books              | 201, 422            | Add new book               |
+| GET    | /api/v1/books              | 200                 | List/search books          |
+| GET    | /api/v1/books/{id}         | 200, 404            | Get book detail            |
+| PUT    | /api/v1/books/{id}         | 200, 404, 422       | Full update (all fields)   |
+| PATCH  | /api/v1/books/{id}         | 200, 404, 422       | Partial update (changed fields only) |
+| PATCH  | /api/v1/books/{id}/status  | 200, 404, 409       | Change book status         |
 
 #### Members
-| Method | Endpoint                      | Status Codes        | Description             |
-|--------|------------------------------|---------------------|-------------------------|
-| POST   | /api/v1/members              | 201, 422            | Register member         |
-| GET    | /api/v1/members              | 200                 | List/search members     |
-| GET    | /api/v1/members/{id}         | 200, 404            | Get member detail       |
-| PUT    | /api/v1/members/{id}         | 200, 404, 422       | Update member info      |
-| PATCH  | /api/v1/members/{id}/status  | 200, 404, 409       | Change member status    |
+| Method | Endpoint                      | Status Codes        | Description                    |
+|--------|------------------------------|---------------------|--------------------------------|
+| POST   | /api/v1/members              | 201, 422            | Register member                |
+| GET    | /api/v1/members              | 200                 | List/search members            |
+| GET    | /api/v1/members/{id}         | 200, 404            | Get member detail              |
+| PUT    | /api/v1/members/{id}         | 200, 404, 422       | Full update (all fields)       |
+| PATCH  | /api/v1/members/{id}         | 200, 404, 422       | Partial update (changed fields only) |
+| PATCH  | /api/v1/members/{id}/status  | 200, 404, 409       | Change member status           |
 
 #### Borrows
 | Method | Endpoint                      | Status Codes        | Description             |
@@ -353,6 +355,94 @@ suspended → active      (via PATCH /api/v1/members/{id}/status)
 
 ---
 
+## Optional Features (Future Enhancements)
+
+### Fines / Penalty System (Optional)
+
+#### Fines Table (`fines`)
+| Column     | Type          | Constraints                    | Notes                    |
+|------------|---------------|--------------------------------|--------------------------|
+| id         | UUID          | PK, default uuid7              |                          |
+| borrow_id  | UUID          | FK → borrows.id, NOT NULL      | Which borrow caused it   |
+| amount     | Decimal(10,2) | NOT NULL                       | Calculated fine amount   |
+| reason     | String(255)   | NOT NULL                       | e.g. "Overdue: 5 days"  |
+| paid_at    | DateTime(tz)  | NULLABLE                       | NULL = unpaid            |
+| created_at | DateTime(tz)  | NOT NULL, server default now() |                          |
+
+#### Domain: app/domain/fine.py
+```python
+from decimal import Decimal
+
+DAILY_FINE_RATE = Decimal("0.50")  # $0.50 per day overdue
+
+class FineNotFoundError(Exception): ...
+class FineAlreadyPaidError(Exception): ...
+
+def calculate_fine(due_date: datetime, returned_at: datetime) -> Decimal:
+    """Calculate fine amount based on overdue days."""
+    if returned_at <= due_date:
+        return Decimal("0.00")
+    overdue_days = (returned_at - due_date).days
+    return Decimal(str(overdue_days)) * DAILY_FINE_RATE
+```
+
+#### Endpoints
+| Method | Endpoint                         | Status Codes   | Description              |
+|--------|----------------------------------|----------------|--------------------------|
+| GET    | /api/v1/members/{id}/fines       | 200, 404       | List fines for a member  |
+| GET    | /api/v1/fines/{id}               | 200, 404       | Get fine detail          |
+| PATCH  | /api/v1/fines/{id}/pay           | 200, 404, 409  | Mark fine as paid        |
+
+#### Integration
+- `borrow_service.return_book()` calculates fine if overdue and auto-creates a fine record
+- Fine amount shown on borrow detail page and member detail page
+- Requires: FineRepository, FineService, fine schemas, fine routes
+- No existing code changes — purely additive
+
+### Reservations / Hold System (Optional)
+
+#### Book Status Addition
+```python
+class BookStatus(str, Enum):
+    AVAILABLE = "available"
+    BORROWED = "borrowed"
+    RESERVED = "reserved"    # NEW
+    RETIRED = "retired"
+```
+
+#### Reservations Table (`reservations`)
+| Column       | Type         | Constraints                    | Notes                        |
+|--------------|--------------|--------------------------------|------------------------------|
+| id           | UUID         | PK, default uuid7              |                              |
+| book_id      | UUID         | FK → books.id, NOT NULL        |                              |
+| member_id    | UUID         | FK → members.id, NOT NULL      |                              |
+| reserved_at  | DateTime(tz) | NOT NULL, default now()        |                              |
+| expires_at   | DateTime(tz) | NOT NULL                       | reserved_at + 3 days         |
+| fulfilled_at | DateTime(tz) | NULLABLE                       | NULL = not yet picked up     |
+| cancelled_at | DateTime(tz) | NULLABLE                       | NULL = not cancelled         |
+| created_at   | DateTime(tz) | NOT NULL, server default now() |                              |
+
+#### Domain Rules
+```
+available → reserved    (via POST /api/v1/reservations)
+reserved  → borrowed    (when reserving member picks up the book)
+reserved  → available   (when reservation expires or is cancelled)
+```
+- `HOLD_PERIOD_DAYS = 3`
+- Only `active` members can reserve
+- Only `available` books can be reserved
+- When borrowing a reserved book, verify borrowing member matches the reservation
+- Background job needed: expire reservations past `expires_at`
+
+#### Endpoints
+| Method | Endpoint                              | Description                  |
+|--------|---------------------------------------|------------------------------|
+| POST   | /api/v1/reservations                  | Reserve a book               |
+| GET    | /api/v1/reservations                  | List reservations (filtered) |
+| PATCH  | /api/v1/reservations/{id}/cancel      | Cancel a reservation         |
+
+---
+
 ## Coding Conventions
 
 ### Python
@@ -535,10 +625,6 @@ class Base(DeclarativeBase):
         DateTime(timezone=True), server_default=func.now()
     )
 ```
-# Neighborhood Library — Frontend
-
-## Append to CLAUDE.md
-> Copy everything below this line into the bottom of your existing CLAUDE.md
 
 ---
 
@@ -575,15 +661,24 @@ frontend/
     │   ├── layout.tsx          # Root layout with Sidebar
     │   ├── page.tsx            # Dashboard
     │   ├── books/
-    │   │   └── page.tsx        # Books management
+    │   │   ├── page.tsx        # Books list
+    │   │   └── [id]/
+    │   │       └── page.tsx    # Book detail (view + edit)
     │   ├── members/
-    │   │   └── page.tsx        # Members management
+    │   │   ├── page.tsx        # Members list
+    │   │   └── [id]/
+    │   │       └── page.tsx    # Member detail (view + edit)
     │   └── borrows/
-    │       └── page.tsx        # Borrows management
+    │       ├── page.tsx        # Borrows list
+    │       └── [id]/
+    │           └── page.tsx    # Borrow detail (read-only)
     │
     ├── components/
     │   ├── layout/
     │   │   └── Sidebar.tsx     # Navigation sidebar
+    │   ├── shared/
+    │   │   ├── DetailField.tsx # Reusable label-value display
+    │   │   └── BackLink.tsx    # Reusable "← Back to X" link
     │   ├── books/
     │   │   ├── BookTable.tsx
     │   │   └── BookFormModal.tsx
@@ -667,6 +762,15 @@ async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
   }
   return res.json();
 }
+
+// Functions to export:
+// Books:   getBooks(params?), getBook(id), createBook(data), patchBook(id, data), updateBookStatus(id, status)
+// Members: getMembers(params?), getMember(id), createMember(data), patchMember(id, data), updateMemberStatus(id, status)
+// Borrows: getBorrows(params?), getBorrow(id), createBorrow(data), returnBorrow(id)
+//
+// patchBook uses PATCH /books/{id} with only changed fields (partial update)
+// patchMember uses PATCH /members/{id} with only changed fields (partial update)
+// Frontend detail page edit mode uses PATCH (not PUT) — sends only modified fields
 ```
 
 ### Status Badge Colors
@@ -684,25 +788,63 @@ Borrows:  active → blue        | overdue → red       | returned → green
 - Recent activity: last 5 borrows
 
 #### Books (`/books`)
-- Table: title, author, isbn, genre, status badge, actions
+- Table: title (links to /books/{id}), author, isbn, genre, status badge, actions
 - Search bar (filters title/author)
 - Status filter dropdown (all/available/borrowed/retired)
 - "Add Book" button → opens modal with BookCreate form
 - Per-row actions: "Retire" button (only on available books)
 
 #### Members (`/members`)
-- Table: name, email, phone, status badge, actions
+- Table: name (links to /members/{id}), email, phone, status badge, actions
 - Search bar (filters name/email)
 - Status filter dropdown
 - "Add Member" button → modal
 - Per-row actions: Suspend/Activate/Deactivate buttons based on current status
 
 #### Borrows (`/borrows`)
-- Table: book title, member name, borrowed date, due date, status, actions
+- Table: book title (links to /books/{id}), member name (links to /members/{id}), borrowed date, due date, status, actions
 - Filter tabs: All / Active / Overdue / Returned
 - "Borrow Book" button → modal (dropdown to select available book + active member)
 - Per-row "Return" button (only on active borrows)
+- Per-row "View" button/icon → /borrows/{id}
 - Overdue rows highlighted with red/amber background
+
+#### Book Detail (`/books/[id]`) — View + Edit
+- **View mode** (default): label-value card showing all book fields + status badge + dates
+- **Edit mode** (toggle via "Edit" button): fields become editable inputs, "Save" + "Cancel" buttons
+- Editable: title, author, isbn, publisher, publication_year, genre
+- NOT editable: status (use action buttons), id, dates
+- Save uses **PATCH** (not PUT): sends only changed fields via `patchBook(id, changedFields)`
+- Status action: "Retire Book" button (only when available)
+- Borrow History section: table of all borrows for this book (fetched from GET /borrows?book_id={id})
+- 404 handling: show "Book not found" with back link
+
+#### Member Detail (`/members/[id]`) — View + Edit
+- Same view/edit toggle pattern as Book Detail
+- Editable: name, email, phone, address
+- NOT editable: status, id, dates
+- Save uses **PATCH** (not PUT): sends only changed fields via `patchMember(id, changedFields)`
+- Status actions: Suspend/Deactivate (when active), Activate (when inactive/suspended)
+- Active Borrows section: current borrows for this member (GET /borrows?member_id={id}&active=true)
+- Full Borrow History section: all borrows (GET /borrows?member_id={id})
+
+#### Borrow Detail (`/borrows/[id]`) — Read-Only
+- Full details card: book info (link to /books/{id}), member info (link to /members/{id})
+- Dates: borrowed_at, due_date, returned_at (or "Not yet returned")
+- Notes field
+- Status badge: Active / Overdue / Returned
+- Overdue alert: "This book is X days overdue" banner if overdue
+- "Return Book" button if active/overdue
+- No edit mode — borrows are append-only
+
+#### Shared Components
+- **DetailField**: reusable label-value pair display (label in muted small text, value below)
+- **BackLink**: reusable "← Back to {page}" navigation link with ArrowLeft icon
+
+#### List Page Navigation
+- BookTable: title column links to /books/{id}
+- MemberTable: name column links to /members/{id}
+- BorrowTable: book title links to /books/{book_id}, member name links to /members/{member_id}, "View" button links to /borrows/{id}
 
 ### Frontend Conventions
 - Use `"use client"` directive on pages/components that use hooks (useState, useEffect)

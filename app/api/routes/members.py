@@ -64,12 +64,23 @@ def get_member(
 
 
 @router.put("/{member_id}")
+def replace_member(
+    member_id: UUID,
+    data: MemberUpdate,
+    service: MemberService = Depends(get_member_service),
+) -> MemberResponse:
+    """Replace member information."""
+    member = service.update_member(member_id, data)
+    return MemberResponse.model_validate(member)
+
+
+@router.patch("/{member_id}")
 def update_member(
     member_id: UUID,
     data: MemberUpdate,
     service: MemberService = Depends(get_member_service),
 ) -> MemberResponse:
-    """Update member information."""
+    """Partially update member information (only provided fields)."""
     member = service.update_member(member_id, data)
     return MemberResponse.model_validate(member)
 

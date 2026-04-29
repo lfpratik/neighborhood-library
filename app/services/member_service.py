@@ -41,9 +41,13 @@ class MemberService:
         return self.repo.get_all(page=page, size=size, status=status, search=search)
 
     def update_member(self, member_id: UUID, data: MemberUpdate) -> Member:
-        """Update mutable member fields."""
+        """Replace member information or Partially update mutable member fields (only provided fields)."""
         self.get_member(member_id)
         updates = data.model_dump(exclude_unset=True)
+        if "email" in updates:
+            existing = self.repo.get_by_email(updates["email"])
+            if existing is not None and str(existing.id) != str(member_id):
+                raise ValueError(f"Email '{updates['email']}' is already registered")
         member = self.repo.update(member_id, updates)
         self.repo.db.commit()
         self.repo.db.refresh(member)

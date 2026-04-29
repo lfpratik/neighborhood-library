@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import {
   Table,
@@ -60,7 +61,11 @@ export default function MemberTable({ members, onRefresh }: Props) {
         <TableBody>
           {members.map((member) => (
             <TableRow key={member.id}>
-              <TableCell className="font-medium text-stone-800">{member.name}</TableCell>
+              <TableCell className="font-medium">
+                <Link href={`/members/${member.id}`} className="text-blue-600 hover:underline">
+                  {member.name}
+                </Link>
+              </TableCell>
               <TableCell className="text-stone-600">{member.email}</TableCell>
               <TableCell className="text-stone-500">{member.phone ?? "—"}</TableCell>
               <TableCell>

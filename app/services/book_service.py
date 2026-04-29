@@ -40,7 +40,7 @@ class BookService:
         return self.repo.get_all(page=page, size=size, status=status, search=search)
 
     def update_book(self, book_id: UUID, data: BookUpdate) -> Book:
-        """Update mutable book fields."""
+        """Replace book information or Partially update mutable book fields (only provided fields)."""
         self.get_book(book_id)
         updates = data.model_dump(exclude_unset=True)
         book = self.repo.update(book_id, updates)

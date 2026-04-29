@@ -22,6 +22,14 @@ function buildQuery(params?: Record<string, string | number | boolean | null | u
   return "?" + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString();
 }
 
+export function getBook(id: string): Promise<Book> {
+  return fetchAPI(`/books/${id}`);
+}
+
+export function patchBook(id: string, data: Partial<Book>): Promise<Book> {
+  return fetchAPI(`/books/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
 export function getBooks(
   params?: Partial<{ status: string; search: string; page: number; size: number }>
 ): Promise<PaginatedResponse<Book>> {
@@ -39,6 +47,14 @@ export function updateBookStatus(id: string, status: Book["status"]): Promise<Bo
   });
 }
 
+export function getMember(id: string): Promise<Member> {
+  return fetchAPI(`/members/${id}`);
+}
+
+export function patchMember(id: string, data: Partial<Member>): Promise<Member> {
+  return fetchAPI(`/members/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
 export function getMembers(
   params?: Partial<{ status: string; search: string; page: number; size: number }>
 ): Promise<PaginatedResponse<Member>> {
@@ -54,6 +70,10 @@ export function updateMemberStatus(id: string, status: Member["status"]): Promis
     method: "PATCH",
     body: JSON.stringify({ status }),
   });
+}
+
+export function getBorrow(id: string): Promise<Borrow> {
+  return fetchAPI(`/borrows/${id}`);
 }
 
 export function getBorrows(

@@ -43,7 +43,7 @@ class BorrowRepository:
             stmt = stmt.where(Borrow.due_date < now, Borrow.returned_at.is_(None))
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total = self.db.scalar(count_stmt)
-        items = self.db.scalars(stmt.offset((page - 1) * size).limit(size)).unique().all()
+        items = self.db.scalars(stmt.order_by(Borrow.borrowed_at.desc()).offset((page - 1) * size).limit(size)).unique().all()
         return list(items), total or 0
 
     def get_active_by_book_id(self, book_id: UUID) -> Borrow | None:

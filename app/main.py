@@ -64,6 +64,7 @@ def create_app() -> FastAPI:
         BookAlreadyBorrowedError,
         BookAlreadyReturnedError,
         MemberNotActiveError,
+        ValueError,
     ]
     for exc_class in conflict:
         app.add_exception_handler(exc_class, _conflict_handler)

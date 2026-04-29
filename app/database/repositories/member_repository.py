@@ -31,7 +31,7 @@ class MemberRepository:
             pattern = f"%{search}%"
             stmt = stmt.where(or_(Member.name.ilike(pattern), Member.email.ilike(pattern)))
         total = self.db.scalar(select(func.count()).select_from(stmt.subquery()))
-        items = self.db.scalars(stmt.offset((page - 1) * size).limit(size)).all()
+        items = self.db.scalars(stmt.order_by(Member.name).offset((page - 1) * size).limit(size)).all()
         return list(items), total or 0
 
     def create(self, data: dict) -> Member:

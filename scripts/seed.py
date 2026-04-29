@@ -210,7 +210,6 @@ def _add_borrow(
         .filter(
             Borrow.book_id == book.id,
             Borrow.member_id == member.id,
-            Borrow.borrowed_at == borrowed_at,
         )
         .first()
     )

@@ -104,6 +104,83 @@ def test_list_overdue(client, db_session):
     assert all(item["returned_at"] is None for item in data["items"])
 
 
+def test_put_book(client):
+    book = client.post("/api/v1/books", json={"title": "Old Title", "author": "Old Author"}).json()
+    resp = client.put(
+        f"/api/v1/books/{book['id']}",
+        json={"title": "New Title", "author": "New Author", "genre": "Fiction"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["title"] == "New Title"
+    assert data["author"] == "New Author"
+    assert data["genre"] == "Fiction"
+
+
+def test_patch_book(client):
+    book = client.post(
+        "/api/v1/books", json={"title": "Original", "author": "Author", "genre": "Sci-Fi"}
+    ).json()
+    resp = client.patch(f"/api/v1/books/{book['id']}", json={"title": "Updated Title"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["title"] == "Updated Title"
+    assert data["author"] == "Author"
+    assert data["genre"] == "Sci-Fi"
+
+
+def test_put_book_not_found(client):
+    import uuid_utils
+
+    fake_id = str(uuid_utils.uuid7())
+    resp = client.put(f"/api/v1/books/{fake_id}", json={"title": "X", "author": "Y"})
+    assert resp.status_code == 404
+
+
+def test_put_member(client):
+    member = client.post(
+        "/api/v1/members", json={"name": "Old Name", "email": "old@example.com"}
+    ).json()
+    resp = client.put(
+        f"/api/v1/members/{member['id']}",
+        json={"name": "New Name", "email": "new@example.com", "phone": "555-1234"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["name"] == "New Name"
+    assert data["email"] == "new@example.com"
+    assert data["phone"] == "555-1234"
+
+
+def test_patch_member(client):
+    member = client.post(
+        "/api/v1/members", json={"name": "Alice", "email": "alice@example.com", "phone": "555-0000"}
+    ).json()
+    resp = client.patch(f"/api/v1/members/{member['id']}", json={"phone": "555-9999"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["phone"] == "555-9999"
+    assert data["name"] == "Alice"
+    assert data["email"] == "alice@example.com"
+
+
+def test_patch_member_duplicate_email(client):
+    client.post("/api/v1/members", json={"name": "Alice", "email": "alice@example.com"})
+    bob = client.post("/api/v1/members", json={"name": "Bob", "email": "bob@example.com"}).json()
+    resp = client.patch(f"/api/v1/members/{bob['id']}", json={"email": "alice@example.com"})
+    assert resp.status_code == 409
+
+
+def test_put_member_duplicate_email(client):
+    client.post("/api/v1/members", json={"name": "Alice", "email": "alice@example.com"})
+    bob = client.post("/api/v1/members", json={"name": "Bob", "email": "bob@example.com"}).json()
+    resp = client.put(
+        f"/api/v1/members/{bob['id']}",
+        json={"name": "Bob Updated", "email": "alice@example.com"},
+    )
+    assert resp.status_code == 409
+
+
 def test_filter_by_member(client):
     book1 = client.post("/api/v1/books", json={"title": "Book 1", "author": "Author"}).json()
     book2 = client.post("/api/v1/books", json={"title": "Book 2", "author": "Author"}).json()

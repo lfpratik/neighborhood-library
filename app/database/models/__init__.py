@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from uuid import UUID
 
@@ -6,8 +7,12 @@ from sqlalchemy import DateTime, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
+def _new_uuid() -> UUID:
+    return uuid.UUID(str(uuid_utils.uuid7()))
+
+
 class Base(DeclarativeBase):
-    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid_utils.uuid7)
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=_new_uuid)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
