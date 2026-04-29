@@ -768,12 +768,12 @@ app/services/member_service.py — add patch_member() method:
 ## 2. API Client — Add functions to frontend/src/lib/api.ts:
 
 - getBook(id: string) → Book                     // GET /books/{id}
-- patchBook(id: string, data) → Book             // PATCH /books/{id} (partial update, only changed fields)
+- updateBook(id: string, data) → Book             // PATCH /books/{id} (partial update, only changed fields)
 - getMember(id: string) → Member                  // GET /members/{id}
-- patchMember(id: string, data) → Member          // PATCH /members/{id} (partial update, only changed fields)
+- updateMember(id: string, data) → Member          // PATCH /members/{id} (partial update, only changed fields)
 - getBorrow(id: string) → Borrow                  // GET /borrows/{id}
 
-IMPORTANT: patchBook and patchMember use HTTP method PATCH (not PUT).
+IMPORTANT: updateBook and updateMember use HTTP method PATCH (not PUT).
 They send only the fields that changed, not the entire object.
 
 ## 2. Shared Components
@@ -818,7 +818,7 @@ TWO MODES: View mode (default) and Edit mode (toggle via "Edit" button).
 - Editable: title, author, isbn, publisher, publication_year (number input), genre
 - NOT editable: status, id, created_at, updated_at (still shown as read-only DetailFields)
 - Pre-fill all inputs with current book data
-- "Save" button (default variant): calls patchBook(id, changedFields) using PATCH, toast("Book updated"), switch to view mode, refetch
+- "Save" button (default variant): calls updateBook(id, changedFields) using PATCH, toast("Book updated"), switch to view mode, refetch
 - "Cancel" button (outline variant): discard changes, switch to view mode
 - Only send fields that actually changed (compare with original)
 
@@ -849,7 +849,7 @@ Same two-mode pattern as Book Detail.
 **Edit Mode:**
 - Editable: name, email, phone, address (textarea for address)
 - NOT editable: status, id, dates
-- Save calls patchMember(id, changedFields) using PATCH, toast, view mode, refetch
+- Save calls updateMember(id, changedFields) using PATCH, toast, view mode, refetch
 - Cancel discards
 
 **Loading/Error:** Same pattern as book detail.

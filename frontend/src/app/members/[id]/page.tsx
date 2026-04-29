@@ -18,7 +18,12 @@ import {
 } from "@/components/ui/table";
 import BackLink from "@/components/shared/BackLink";
 import DetailField from "@/components/shared/DetailField";
-import { getMember, patchMember, updateMemberStatus, getBorrows } from "@/lib/api";
+import {
+  getMember,
+  updateMember,
+  updateMemberStatus,
+  getBorrows,
+} from "@/lib/api";
 import { formatDate, getStatusColor, isOverdue } from "@/lib/utils";
 import type { Member, Borrow } from "@/types";
 
@@ -81,9 +86,11 @@ export default function MemberDetailPage() {
 
   function fetchBorrows() {
     getBorrows({ member_id: id, active: true, size: 50 }).then((res) =>
-      setActiveBorrows(res.items)
+      setActiveBorrows(res.items),
     );
-    getBorrows({ member_id: id, size: 50 }).then((res) => setAllBorrows(res.items));
+    getBorrows({ member_id: id, size: 50 }).then((res) =>
+      setAllBorrows(res.items),
+    );
   }
 
   useEffect(() => {
@@ -109,12 +116,14 @@ export default function MemberDetailPage() {
 
     setSaving(true);
     try {
-      await patchMember(id, changed);
+      await updateMember(id, changed);
       toast.success("Member updated");
       setEditMode(false);
       fetchMember();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update member");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to update member",
+      );
     } finally {
       setSaving(false);
     }
@@ -128,7 +137,9 @@ export default function MemberDetailPage() {
       toast.success(`Member ${newStatus}`);
       fetchMember();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update status");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to update status",
+      );
     } finally {
       setUpdatingStatus(false);
     }
@@ -164,7 +175,10 @@ export default function MemberDetailPage() {
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-stone-800">{member.name}</h1>
-          <Badge variant={getStatusColor("member", member.status)} className="capitalize">
+          <Badge
+            variant={getStatusColor("member", member.status)}
+            className="capitalize"
+          >
             {member.status}
           </Badge>
         </div>
@@ -184,7 +198,9 @@ export default function MemberDetailPage() {
                 <p className="text-sm text-muted-foreground">Name</p>
                 <Input
                   value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, name: e.target.value }))
+                  }
                 />
               </div>
               <div className="space-y-1">
@@ -192,14 +208,18 @@ export default function MemberDetailPage() {
                 <Input
                   type="email"
                   value={form.email}
-                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, email: e.target.value }))
+                  }
                 />
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Phone</p>
                 <Input
                   value={form.phone}
-                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, phone: e.target.value }))
+                  }
                   placeholder="—"
                 />
               </div>
@@ -207,19 +227,33 @@ export default function MemberDetailPage() {
                 <p className="text-sm text-muted-foreground">Address</p>
                 <textarea
                   value={form.address}
-                  onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, address: e.target.value }))
+                  }
                   placeholder="—"
                   rows={3}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 />
               </div>
-              <DetailField label="Status" value={
-                <Badge variant={getStatusColor("member", member.status)} className="capitalize">
-                  {member.status}
-                </Badge>
-              } />
-              <DetailField label="Created" value={formatDate(member.created_at)} />
-              <DetailField label="Last Updated" value={formatDate(member.updated_at)} />
+              <DetailField
+                label="Status"
+                value={
+                  <Badge
+                    variant={getStatusColor("member", member.status)}
+                    className="capitalize"
+                  >
+                    {member.status}
+                  </Badge>
+                }
+              />
+              <DetailField
+                label="Created"
+                value={formatDate(member.created_at)}
+              />
+              <DetailField
+                label="Last Updated"
+                value={formatDate(member.updated_at)}
+              />
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -227,13 +261,25 @@ export default function MemberDetailPage() {
               <DetailField label="Email" value={member.email} />
               <DetailField label="Phone" value={member.phone ?? "—"} />
               <DetailField label="Address" value={member.address ?? "—"} />
-              <DetailField label="Status" value={
-                <Badge variant={getStatusColor("member", member.status)} className="capitalize">
-                  {member.status}
-                </Badge>
-              } />
-              <DetailField label="Created" value={formatDate(member.created_at)} />
-              <DetailField label="Last Updated" value={formatDate(member.updated_at)} />
+              <DetailField
+                label="Status"
+                value={
+                  <Badge
+                    variant={getStatusColor("member", member.status)}
+                    className="capitalize"
+                  >
+                    {member.status}
+                  </Badge>
+                }
+              />
+              <DetailField
+                label="Created"
+                value={formatDate(member.created_at)}
+              />
+              <DetailField
+                label="Last Updated"
+                value={formatDate(member.updated_at)}
+              />
             </div>
           )}
         </CardContent>
@@ -245,7 +291,11 @@ export default function MemberDetailPage() {
           <Button onClick={handleSave} disabled={saving}>
             {saving ? "Saving…" : "Save"}
           </Button>
-          <Button variant="outline" onClick={handleCancelEdit} disabled={saving}>
+          <Button
+            variant="outline"
+            onClick={handleCancelEdit}
+            disabled={saving}
+          >
             Cancel
           </Button>
         </div>
@@ -273,7 +323,10 @@ export default function MemberDetailPage() {
             </>
           )}
           {(member.status === "inactive" || member.status === "suspended") && (
-            <Button onClick={() => handleStatusChange("active")} disabled={updatingStatus}>
+            <Button
+              onClick={() => handleStatusChange("active")}
+              disabled={updatingStatus}
+            >
               {updatingStatus ? "…" : "Activate"}
             </Button>
           )}
@@ -309,10 +362,17 @@ export default function MemberDetailPage() {
                           {borrow.book.title}
                         </Link>
                       </TableCell>
-                      <TableCell className="text-stone-500">{formatDate(borrow.borrowed_at)}</TableCell>
-                      <TableCell className="text-stone-500">{formatDate(borrow.due_date)}</TableCell>
+                      <TableCell className="text-stone-500">
+                        {formatDate(borrow.borrowed_at)}
+                      </TableCell>
+                      <TableCell className="text-stone-500">
+                        {formatDate(borrow.due_date)}
+                      </TableCell>
                       <TableCell>
-                        <Badge variant={getStatusColor("borrow", borrowStatus)} className="capitalize">
+                        <Badge
+                          variant={getStatusColor("borrow", borrowStatus)}
+                          className="capitalize"
+                        >
                           {borrowStatus}
                         </Badge>
                       </TableCell>
@@ -354,13 +414,22 @@ export default function MemberDetailPage() {
                           {borrow.book.title}
                         </Link>
                       </TableCell>
-                      <TableCell className="text-stone-500">{formatDate(borrow.borrowed_at)}</TableCell>
-                      <TableCell className="text-stone-500">{formatDate(borrow.due_date)}</TableCell>
+                      <TableCell className="text-stone-500">
+                        {formatDate(borrow.borrowed_at)}
+                      </TableCell>
+                      <TableCell className="text-stone-500">
+                        {formatDate(borrow.due_date)}
+                      </TableCell>
                       <TableCell>
                         {borrow.returned_at ? (
-                          <span className="text-stone-500">{formatDate(borrow.returned_at)}</span>
+                          <span className="text-stone-500">
+                            {formatDate(borrow.returned_at)}
+                          </span>
                         ) : (
-                          <Badge variant={getStatusColor("borrow", borrowStatus)} className="capitalize">
+                          <Badge
+                            variant={getStatusColor("borrow", borrowStatus)}
+                            className="capitalize"
+                          >
                             {borrowStatus}
                           </Badge>
                         )}

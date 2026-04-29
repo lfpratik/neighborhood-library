@@ -764,12 +764,12 @@ async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 // Functions to export:
-// Books:   getBooks(params?), getBook(id), createBook(data), patchBook(id, data), updateBookStatus(id, status)
-// Members: getMembers(params?), getMember(id), createMember(data), patchMember(id, data), updateMemberStatus(id, status)
+// Books:   getBooks(params?), getBook(id), createBook(data), updateBook(id, data), updateBookStatus(id, status)
+// Members: getMembers(params?), getMember(id), createMember(data), updateMember(id, data), updateMemberStatus(id, status)
 // Borrows: getBorrows(params?), getBorrow(id), createBorrow(data), returnBorrow(id)
 //
-// patchBook uses PATCH /books/{id} with only changed fields (partial update)
-// patchMember uses PATCH /members/{id} with only changed fields (partial update)
+// updateBook uses PATCH /books/{id} with only changed fields (partial update)
+// updateMember uses PATCH /members/{id} with only changed fields (partial update)
 // Frontend detail page edit mode uses PATCH (not PUT) — sends only modified fields
 ```
 
@@ -814,7 +814,7 @@ Borrows:  active → blue        | overdue → red       | returned → green
 - **Edit mode** (toggle via "Edit" button): fields become editable inputs, "Save" + "Cancel" buttons
 - Editable: title, author, isbn, publisher, publication_year, genre
 - NOT editable: status (use action buttons), id, dates
-- Save uses **PATCH** (not PUT): sends only changed fields via `patchBook(id, changedFields)`
+- Save uses **PATCH** (not PUT): sends only changed fields via `updateBook(id, changedFields)`
 - Status action: "Retire Book" button (only when available)
 - Borrow History section: table of all borrows for this book (fetched from GET /borrows?book_id={id})
 - 404 handling: show "Book not found" with back link
@@ -823,7 +823,7 @@ Borrows:  active → blue        | overdue → red       | returned → green
 - Same view/edit toggle pattern as Book Detail
 - Editable: name, email, phone, address
 - NOT editable: status, id, dates
-- Save uses **PATCH** (not PUT): sends only changed fields via `patchMember(id, changedFields)`
+- Save uses **PATCH** (not PUT): sends only changed fields via `updateMember(id, changedFields)`
 - Status actions: Suspend/Deactivate (when active), Activate (when inactive/suspended)
 - Active Borrows section: current borrows for this member (GET /borrows?member_id={id}&active=true)
 - Full Borrow History section: all borrows (GET /borrows?member_id={id})

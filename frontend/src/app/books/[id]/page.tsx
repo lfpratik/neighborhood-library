@@ -18,8 +18,13 @@ import {
 } from "@/components/ui/table";
 import BackLink from "@/components/shared/BackLink";
 import DetailField from "@/components/shared/DetailField";
-import { getBook, patchBook, updateBookStatus, getBorrows } from "@/lib/api";
-import { formatDate, formatDateTime, getStatusColor, isOverdue } from "@/lib/utils";
+import { getBook, updateBook, updateBookStatus, getBorrows } from "@/lib/api";
+import {
+  formatDate,
+  formatDateTime,
+  getStatusColor,
+  isOverdue,
+} from "@/lib/utils";
 import type { Book, Borrow } from "@/types";
 
 function getBorrowStatus(borrow: Borrow): "returned" | "overdue" | "active" {
@@ -74,7 +79,8 @@ export default function BookDetailPage() {
           author: b.author,
           isbn: b.isbn ?? "",
           publisher: b.publisher ?? "",
-          publication_year: b.publication_year != null ? String(b.publication_year) : "",
+          publication_year:
+            b.publication_year != null ? String(b.publication_year) : "",
           genre: b.genre ?? "",
         });
       })
@@ -101,7 +107,9 @@ export default function BookDetailPage() {
     if (isbn !== book.isbn) changed.isbn = isbn;
     const publisher = form.publisher.trim() || null;
     if (publisher !== book.publisher) changed.publisher = publisher;
-    const year = form.publication_year ? parseInt(form.publication_year, 10) : null;
+    const year = form.publication_year
+      ? parseInt(form.publication_year, 10)
+      : null;
     if (year !== book.publication_year) changed.publication_year = year;
     const genre = form.genre.trim() || null;
     if (genre !== book.genre) changed.genre = genre;
@@ -113,7 +121,7 @@ export default function BookDetailPage() {
 
     setSaving(true);
     try {
-      await patchBook(id, changed);
+      await updateBook(id, changed);
       toast.success("Book updated");
       setEditMode(false);
       fetchBook();
@@ -145,7 +153,8 @@ export default function BookDetailPage() {
       author: book.author,
       isbn: book.isbn ?? "",
       publisher: book.publisher ?? "",
-      publication_year: book.publication_year != null ? String(book.publication_year) : "",
+      publication_year:
+        book.publication_year != null ? String(book.publication_year) : "",
       genre: book.genre ?? "",
     });
     setEditMode(false);
@@ -170,7 +179,10 @@ export default function BookDetailPage() {
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-stone-800">{book.title}</h1>
-          <Badge variant={getStatusColor("book", book.status)} className="capitalize">
+          <Badge
+            variant={getStatusColor("book", book.status)}
+            className="capitalize"
+          >
             {book.status}
           </Badge>
         </div>
@@ -190,21 +202,27 @@ export default function BookDetailPage() {
                 <p className="text-sm text-muted-foreground">Title</p>
                 <Input
                   value={form.title}
-                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, title: e.target.value }))
+                  }
                 />
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Author</p>
                 <Input
                   value={form.author}
-                  onChange={(e) => setForm((f) => ({ ...f, author: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, author: e.target.value }))
+                  }
                 />
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">ISBN</p>
                 <Input
                   value={form.isbn}
-                  onChange={(e) => setForm((f) => ({ ...f, isbn: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, isbn: e.target.value }))
+                  }
                   placeholder="—"
                 />
               </div>
@@ -212,16 +230,22 @@ export default function BookDetailPage() {
                 <p className="text-sm text-muted-foreground">Publisher</p>
                 <Input
                   value={form.publisher}
-                  onChange={(e) => setForm((f) => ({ ...f, publisher: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, publisher: e.target.value }))
+                  }
                   placeholder="—"
                 />
               </div>
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Publication Year</p>
+                <p className="text-sm text-muted-foreground">
+                  Publication Year
+                </p>
                 <Input
                   type="number"
                   value={form.publication_year}
-                  onChange={(e) => setForm((f) => ({ ...f, publication_year: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, publication_year: e.target.value }))
+                  }
                   placeholder="—"
                 />
               </div>
@@ -229,17 +253,31 @@ export default function BookDetailPage() {
                 <p className="text-sm text-muted-foreground">Genre</p>
                 <Input
                   value={form.genre}
-                  onChange={(e) => setForm((f) => ({ ...f, genre: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, genre: e.target.value }))
+                  }
                   placeholder="—"
                 />
               </div>
-              <DetailField label="Status" value={
-                <Badge variant={getStatusColor("book", book.status)} className="capitalize">
-                  {book.status}
-                </Badge>
-              } />
-              <DetailField label="Created" value={formatDate(book.created_at)} />
-              <DetailField label="Last Updated" value={formatDate(book.updated_at)} />
+              <DetailField
+                label="Status"
+                value={
+                  <Badge
+                    variant={getStatusColor("book", book.status)}
+                    className="capitalize"
+                  >
+                    {book.status}
+                  </Badge>
+                }
+              />
+              <DetailField
+                label="Created"
+                value={formatDate(book.created_at)}
+              />
+              <DetailField
+                label="Last Updated"
+                value={formatDate(book.updated_at)}
+              />
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -247,15 +285,34 @@ export default function BookDetailPage() {
               <DetailField label="Author" value={book.author} />
               <DetailField label="ISBN" value={book.isbn ?? "—"} />
               <DetailField label="Publisher" value={book.publisher ?? "—"} />
-              <DetailField label="Publication Year" value={book.publication_year != null ? String(book.publication_year) : "—"} />
+              <DetailField
+                label="Publication Year"
+                value={
+                  book.publication_year != null
+                    ? String(book.publication_year)
+                    : "—"
+                }
+              />
               <DetailField label="Genre" value={book.genre ?? "—"} />
-              <DetailField label="Status" value={
-                <Badge variant={getStatusColor("book", book.status)} className="capitalize">
-                  {book.status}
-                </Badge>
-              } />
-              <DetailField label="Created" value={formatDate(book.created_at)} />
-              <DetailField label="Last Updated" value={formatDate(book.updated_at)} />
+              <DetailField
+                label="Status"
+                value={
+                  <Badge
+                    variant={getStatusColor("book", book.status)}
+                    className="capitalize"
+                  >
+                    {book.status}
+                  </Badge>
+                }
+              />
+              <DetailField
+                label="Created"
+                value={formatDate(book.created_at)}
+              />
+              <DetailField
+                label="Last Updated"
+                value={formatDate(book.updated_at)}
+              />
             </div>
           )}
         </CardContent>
@@ -267,7 +324,11 @@ export default function BookDetailPage() {
           <Button onClick={handleSave} disabled={saving}>
             {saving ? "Saving…" : "Save"}
           </Button>
-          <Button variant="outline" onClick={handleCancelEdit} disabled={saving}>
+          <Button
+            variant="outline"
+            onClick={handleCancelEdit}
+            disabled={saving}
+          >
             Cancel
           </Button>
         </div>
@@ -277,7 +338,11 @@ export default function BookDetailPage() {
       {!editMode && (
         <div>
           {book.status === "available" && (
-            <Button variant="destructive" onClick={handleRetire} disabled={retiring}>
+            <Button
+              variant="destructive"
+              onClick={handleRetire}
+              disabled={retiring}
+            >
               {retiring ? "Retiring…" : "Retire Book"}
             </Button>
           )}
@@ -320,15 +385,24 @@ export default function BookDetailPage() {
                           {borrow.member.name}
                         </Link>
                       </TableCell>
-                      <TableCell className="text-stone-500">{formatDate(borrow.borrowed_at)}</TableCell>
-                      <TableCell className="text-stone-500">{formatDate(borrow.due_date)}</TableCell>
+                      <TableCell className="text-stone-500">
+                        {formatDate(borrow.borrowed_at)}
+                      </TableCell>
+                      <TableCell className="text-stone-500">
+                        {formatDate(borrow.due_date)}
+                      </TableCell>
                       <TableCell>
-                        <Badge variant={getStatusColor("borrow", borrowStatus)} className="capitalize">
+                        <Badge
+                          variant={getStatusColor("borrow", borrowStatus)}
+                          className="capitalize"
+                        >
                           {borrowStatus}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-stone-500">
-                        {borrow.returned_at ? formatDate(borrow.returned_at) : "—"}
+                        {borrow.returned_at
+                          ? formatDate(borrow.returned_at)
+                          : "—"}
                       </TableCell>
                     </TableRow>
                   );

@@ -15,23 +15,38 @@ async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
-function buildQuery(params?: Record<string, string | number | boolean | null | undefined>): string {
+function buildQuery(
+  params?: Record<string, string | number | boolean | null | undefined>,
+): string {
   if (!params) return "";
-  const entries = Object.entries(params).filter(([, v]) => v != null && v !== "");
+  const entries = Object.entries(params).filter(
+    ([, v]) => v != null && v !== "",
+  );
   if (!entries.length) return "";
-  return "?" + new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString();
+  return (
+    "?" +
+    new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString()
+  );
 }
 
 export function getBook(id: string): Promise<Book> {
   return fetchAPI(`/books/${id}`);
 }
 
-export function patchBook(id: string, data: Partial<Book>): Promise<Book> {
-  return fetchAPI(`/books/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+export function updateBook(id: string, data: Partial<Book>): Promise<Book> {
+  return fetchAPI(`/books/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
 }
 
 export function getBooks(
-  params?: Partial<{ status: string; search: string; page: number; size: number }>
+  params?: Partial<{
+    status: string;
+    search: string;
+    page: number;
+    size: number;
+  }>,
 ): Promise<PaginatedResponse<Book>> {
   return fetchAPI(`/books${buildQuery(params)}`);
 }
@@ -40,7 +55,10 @@ export function createBook(data: Partial<Book>): Promise<Book> {
   return fetchAPI("/books", { method: "POST", body: JSON.stringify(data) });
 }
 
-export function updateBookStatus(id: string, status: Book["status"]): Promise<Book> {
+export function updateBookStatus(
+  id: string,
+  status: Book["status"],
+): Promise<Book> {
   return fetchAPI(`/books/${id}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
@@ -51,12 +69,23 @@ export function getMember(id: string): Promise<Member> {
   return fetchAPI(`/members/${id}`);
 }
 
-export function patchMember(id: string, data: Partial<Member>): Promise<Member> {
-  return fetchAPI(`/members/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+export function updateMember(
+  id: string,
+  data: Partial<Member>,
+): Promise<Member> {
+  return fetchAPI(`/members/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
 }
 
 export function getMembers(
-  params?: Partial<{ status: string; search: string; page: number; size: number }>
+  params?: Partial<{
+    status: string;
+    search: string;
+    page: number;
+    size: number;
+  }>,
 ): Promise<PaginatedResponse<Member>> {
   return fetchAPI(`/members${buildQuery(params)}`);
 }
@@ -65,7 +94,10 @@ export function createMember(data: Partial<Member>): Promise<Member> {
   return fetchAPI("/members", { method: "POST", body: JSON.stringify(data) });
 }
 
-export function updateMemberStatus(id: string, status: Member["status"]): Promise<Member> {
+export function updateMemberStatus(
+  id: string,
+  status: Member["status"],
+): Promise<Member> {
   return fetchAPI(`/members/${id}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
@@ -84,12 +116,16 @@ export function getBorrows(
     overdue: boolean;
     page: number;
     size: number;
-  }>
+  }>,
 ): Promise<PaginatedResponse<Borrow>> {
   return fetchAPI(`/borrows${buildQuery(params)}`);
 }
 
-export function createBorrow(data: { book_id: string; member_id: string; notes?: string }): Promise<Borrow> {
+export function createBorrow(data: {
+  book_id: string;
+  member_id: string;
+  notes?: string;
+}): Promise<Borrow> {
   return fetchAPI("/borrows", { method: "POST", body: JSON.stringify(data) });
 }
 
