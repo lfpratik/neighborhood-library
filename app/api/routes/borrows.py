@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request, Response, status
 
-from app.api.schemas.borrow import BorrowCreate, BorrowResponse
+from app.api.schemas.borrow import BorrowCreate, BorrowResponse, BorrowSummaryResponse
 from app.api.schemas.common import PaginatedResponse
 from app.dependencies import get_borrow_service
 from app.services.borrow_service import BorrowService
@@ -32,7 +32,7 @@ def list_borrows(
     page: int = 1,
     size: int = 10,
     service: BorrowService = Depends(get_borrow_service),
-) -> PaginatedResponse[BorrowResponse]:
+) -> PaginatedResponse[BorrowSummaryResponse]:
     """List borrows with optional filters."""
     items, total = service.list_borrows(
         page=page,
@@ -43,7 +43,7 @@ def list_borrows(
         overdue=overdue,
     )
     return PaginatedResponse(
-        items=[BorrowResponse.model_validate(b) for b in items],
+        items=[BorrowSummaryResponse.model_validate(b) for b in items],
         total=total,
         page=page,
         size=size,
