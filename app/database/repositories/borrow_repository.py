@@ -3,10 +3,12 @@ from typing import cast
 from uuid import UUID
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, load_only
 
 from app.core.logging import log_db_call
+from app.database.models.book import Book
 from app.database.models.borrow import Borrow
+from app.database.models.member import Member
 from app.database.repositories import BaseRepository
 
 
@@ -31,7 +33,12 @@ class BorrowRepository(BaseRepository):
         active: bool | None = None,
         overdue: bool | None = None,
     ) -> tuple[list[Borrow], int]:
-        stmt = select(Borrow).options(joinedload(Borrow.book), joinedload(Borrow.member))
+        # BorrowSummaryResponse only needs book.title and member.name —
+        # load_only avoids fetching every column of both related tables.
+        stmt = select(Borrow).options(
+            joinedload(Borrow.book).load_only(Book.title),
+            joinedload(Borrow.member).load_only(Member.name),
+        )
         if member_id is not None:
             stmt = stmt.where(Borrow.member_id == member_id)
         if book_id is not None:
