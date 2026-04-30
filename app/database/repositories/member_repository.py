@@ -2,11 +2,9 @@ from typing import cast
 from uuid import UUID
 
 from sqlalchemy import func, or_, select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database.models.member import Member
-from app.domain.member import DuplicateEmailError
 
 
 class MemberRepository:
@@ -39,31 +37,17 @@ class MemberRepository:
         return list(items), total or 0
 
     def create(self, data: dict) -> Member:
-        try:
-            member = Member(**data)
-            self.db.add(member)
-            self.db.flush()
-            return member
-        except IntegrityError as e:
-            if "uq_members_email" in str(e.orig) or "members.email" in str(e.orig):
-                raise DuplicateEmailError(
-                    f"Email '{data.get('email')}' is already registered"
-                ) from e
-            raise
+        member = Member(**data)
+        self.db.add(member)
+        self.db.flush()
+        return member
 
     def update(self, member_id: UUID, data: dict) -> Member:
-        try:
-            member = cast(Member, self.db.get(Member, member_id))
-            for key, value in data.items():
-                setattr(member, key, value)
-            self.db.flush()
-            return member
-        except IntegrityError as e:
-            if "uq_members_email" in str(e.orig) or "members.email" in str(e.orig):
-                raise DuplicateEmailError(
-                    f"Email '{data.get('email')}' is already registered"
-                ) from e
-            raise
+        member = cast(Member, self.db.get(Member, member_id))
+        for key, value in data.items():
+            setattr(member, key, value)
+        self.db.flush()
+        return member
 
     def update_status(self, member_id: UUID, new_status: str) -> Member:
         member = cast(Member, self.db.get(Member, member_id))

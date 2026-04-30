@@ -1,6 +1,8 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
+
 from app.api.schemas.borrow import BorrowCreate
 from app.database.models.borrow import Borrow
 from app.database.repositories.book_repository import BookRepository
@@ -46,17 +48,21 @@ class BorrowService:
 
         borrowed_at = datetime.now(UTC)
         due_date = calculate_due_date(borrowed_at)
-        borrow = self.borrow_repo.create(
-            {
-                "book_id": data.book_id,
-                "member_id": data.member_id,
-                "borrowed_at": borrowed_at,
-                "due_date": due_date,
-                "notes": data.notes,
-            }
-        )
-        self.book_repo.update_status(data.book_id, BookStatus.BORROWED.value)
-        self.borrow_repo.db.commit()
+        try:
+            borrow = self.borrow_repo.create(
+                {
+                    "book_id": data.book_id,
+                    "member_id": data.member_id,
+                    "borrowed_at": borrowed_at,
+                    "due_date": due_date,
+                    "notes": data.notes,
+                }
+            )
+            self.book_repo.update_status(data.book_id, BookStatus.BORROWED.value)
+            self.borrow_repo.db.commit()
+        except IntegrityError as exc:
+            self.borrow_repo.db.rollback()
+            raise BookAlreadyBorrowedError("Book already has an active borrow") from exc
         return self.borrow_repo.get_by_id(borrow.id)  # type: ignore[return-value]
 
     def return_book(self, borrow_id: UUID) -> Borrow:

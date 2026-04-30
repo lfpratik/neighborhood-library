@@ -296,6 +296,47 @@ def test_422_error_shape(client):
     assert detail["code"] == "ValidationError"
 
 
+def test_create_member_duplicate_email(client):
+    client.post("/api/v1/members", json={"name": "Alice", "email": "alice@example.com"})
+    resp = client.post("/api/v1/members", json={"name": "Alice 2", "email": "alice@example.com"})
+    assert resp.status_code == 409
+    assert "alice@example.com" in resp.json()["detail"]["message"]
+
+
+def test_list_borrows_returns_flat_fields(client):
+    book = client.post("/api/v1/books", json={"title": "SICP", "author": "Abelson"}).json()
+    member = client.post(
+        "/api/v1/members", json={"name": "Alice", "email": "alice@example.com"}
+    ).json()
+    client.post("/api/v1/borrows", json={"book_id": book["id"], "member_id": member["id"]})
+
+    resp = client.get("/api/v1/borrows")
+    assert resp.status_code == 200
+    item = resp.json()["items"][0]
+    assert item["book_title"] == "SICP"
+    assert item["member_name"] == "Alice"
+    assert "book" not in item
+    assert "member" not in item
+
+
+def test_get_borrow_returns_nested_objects(client):
+    book = client.post("/api/v1/books", json={"title": "SICP", "author": "Abelson"}).json()
+    member = client.post(
+        "/api/v1/members", json={"name": "Alice", "email": "alice@example.com"}
+    ).json()
+    borrow = client.post(
+        "/api/v1/borrows", json={"book_id": book["id"], "member_id": member["id"]}
+    ).json()
+
+    resp = client.get(f"/api/v1/borrows/{borrow['id']}")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["book"]["title"] == "SICP"
+    assert data["member"]["name"] == "Alice"
+    assert "book_title" not in data
+    assert "member_name" not in data
+
+
 def test_filter_by_member(client):
     book1 = client.post("/api/v1/books", json={"title": "Book 1", "author": "Author"}).json()
     book2 = client.post("/api/v1/books", json={"title": "Book 2", "author": "Author"}).json()

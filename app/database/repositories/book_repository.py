@@ -2,11 +2,9 @@ from typing import cast
 from uuid import UUID
 
 from sqlalchemy import func, or_, select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database.models.book import Book
-from app.domain.book import DuplicateISBNError
 
 
 class BookRepository:
@@ -39,31 +37,17 @@ class BookRepository:
         return self.db.scalar(select(Book).where(Book.isbn == isbn))
 
     def create(self, data: dict) -> Book:
-        try:
-            book = Book(**data)
-            self.db.add(book)
-            self.db.flush()
-            return book
-        except IntegrityError as e:
-            if "uq_books_isbn" in str(e.orig) or "books.isbn" in str(e.orig):
-                raise DuplicateISBNError(
-                    f"ISBN '{data.get('isbn')}' is already registered"
-                ) from None
-            raise
+        book = Book(**data)
+        self.db.add(book)
+        self.db.flush()
+        return book
 
     def update(self, book_id: UUID, data: dict) -> Book:
-        try:
-            book = cast(Book, self.db.get(Book, book_id))
-            for key, value in data.items():
-                setattr(book, key, value)
-            self.db.flush()
-            return book
-        except IntegrityError as e:
-            if "uq_books_isbn" in str(e.orig) or "books.isbn" in str(e.orig):
-                raise DuplicateISBNError(
-                    f"ISBN '{data.get('isbn')}' is already registered"
-                ) from None
-            raise
+        book = cast(Book, self.db.get(Book, book_id))
+        for key, value in data.items():
+            setattr(book, key, value)
+        self.db.flush()
+        return book
 
     def update_status(self, book_id: UUID, new_status: str) -> Book:
         book = cast(Book, self.db.get(Book, book_id))

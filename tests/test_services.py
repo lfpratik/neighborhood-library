@@ -6,7 +6,7 @@ from app.api.schemas.member import MemberCreate, MemberStatusUpdate
 from app.database.repositories.book_repository import BookRepository
 from app.database.repositories.borrow_repository import BorrowRepository
 from app.database.repositories.member_repository import MemberRepository
-from app.domain.book import BookNotAvailableError, BookRetirementError, BookStatus
+from app.domain.book import BookNotAvailableError, BookRetirementError, BookStatus, DuplicateISBNError
 from app.domain.borrow import BookAlreadyBorrowedError, BookAlreadyReturnedError
 from app.domain.member import DuplicateEmailError, MemberNotActiveError, MemberStatus
 from app.services.book_service import BookService
@@ -38,6 +38,23 @@ def test_create_member_duplicate_email(db_session):
     svc.create_member(MemberCreate(name="Alice", email="alice@example.com"))
     with pytest.raises(DuplicateEmailError):
         svc.create_member(MemberCreate(name="Bob", email="alice@example.com"))
+
+
+def test_create_book_duplicate_isbn(db_session):
+    svc = book_service(db_session)
+    svc.create_book(BookCreate(title="Book A", author="Author", isbn="9781234567890"))
+    with pytest.raises(DuplicateISBNError, match="already registered"):
+        svc.create_book(BookCreate(title="Book B", author="Author", isbn="9781234567890"))
+
+
+def test_update_book_duplicate_isbn(db_session):
+    svc = book_service(db_session)
+    svc.create_book(BookCreate(title="Book A", author="Author", isbn="9781234567890"))
+    book_b = svc.create_book(BookCreate(title="Book B", author="Author", isbn="9780000000000"))
+    from app.api.schemas.book import BookUpdate
+
+    with pytest.raises(DuplicateISBNError, match="already registered"):
+        svc.update_book(book_b.id, BookUpdate(isbn="9781234567890"))
 
 
 def test_borrow_book_success(db_session):

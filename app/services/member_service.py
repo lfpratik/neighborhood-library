@@ -1,9 +1,12 @@
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
+
 from app.api.schemas.member import MemberCreate, MemberStatusUpdate, MemberUpdate
 from app.database.models.member import Member
 from app.database.repositories.member_repository import MemberRepository
 from app.domain.member import (
+    DuplicateEmailError,
     MemberNotFoundError,
     MemberStatus,
     validate_member_status_transition,
@@ -16,8 +19,12 @@ class MemberService:
 
     def create_member(self, data: MemberCreate) -> Member:
         """Register a new member."""
-        member = self.repo.create(data.model_dump())
-        self.repo.db.commit()
+        try:
+            member = self.repo.create(data.model_dump())
+            self.repo.db.commit()
+        except IntegrityError:
+            self.repo.db.rollback()
+            raise DuplicateEmailError(f"Email '{data.email}' is already registered")
         self.repo.db.refresh(member)
         return member
 
@@ -42,8 +49,12 @@ class MemberService:
         """Replace member information or Partially update mutable member fields (only provided fields)."""
         self.get_member(member_id)
         updates = data.model_dump(exclude_unset=True)
-        member = self.repo.update(member_id, updates)
-        self.repo.db.commit()
+        try:
+            member = self.repo.update(member_id, updates)
+            self.repo.db.commit()
+        except IntegrityError:
+            self.repo.db.rollback()
+            raise DuplicateEmailError(f"Email '{updates.get('email')}' is already registered")
         self.repo.db.refresh(member)
         return member
 

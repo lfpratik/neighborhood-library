@@ -1,5 +1,7 @@
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
+
 from app.api.schemas.book import BookCreate, BookStatusUpdate, BookUpdate
 from app.database.models.book import Book
 from app.database.repositories.book_repository import BookRepository
@@ -7,6 +9,7 @@ from app.domain.book import (
     BookNotFoundError,
     BookRetirementError,
     BookStatus,
+    DuplicateISBNError,
     validate_book_status_transition,
 )
 
@@ -17,8 +20,12 @@ class BookService:
 
     def create_book(self, data: BookCreate) -> Book:
         """Add a new book to the library."""
-        book = self.repo.create(data.model_dump())
-        self.repo.db.commit()
+        try:
+            book = self.repo.create(data.model_dump())
+            self.repo.db.commit()
+        except IntegrityError as ie:
+            self.repo.db.rollback()
+            raise DuplicateISBNError(f"ISBN '{data.isbn}' is already registered") from ie
         self.repo.db.refresh(book)
         return book
 
@@ -43,8 +50,12 @@ class BookService:
         """Replace book information or Partially update mutable book fields (only provided fields)."""
         self.get_book(book_id)
         updates = data.model_dump(exclude_unset=True)
-        book = self.repo.update(book_id, updates)
-        self.repo.db.commit()
+        try:
+            book = self.repo.update(book_id, updates)
+            self.repo.db.commit()
+        except IntegrityError as ie:
+            self.repo.db.rollback()
+            raise DuplicateISBNError(f"ISBN '{updates.get('isbn')}' is already registered") from ie
         self.repo.db.refresh(book)
         return book
 
