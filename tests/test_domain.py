@@ -3,9 +3,11 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from app.domain.book import (
+    BookNotAvailableError,
     BookRetirementError,
     BookStatus,
     InvalidBookStatusTransitionError,
+    validate_book_is_available,
     validate_book_status_transition,
 )
 from app.domain.borrow import (
@@ -16,9 +18,39 @@ from app.domain.borrow import (
 )
 from app.domain.member import (
     InvalidMemberStatusTransitionError,
+    MemberNotActiveError,
     MemberStatus,
+    validate_member_is_active,
     validate_member_status_transition,
 )
+
+
+def test_validate_book_is_available_passes():
+    validate_book_is_available(BookStatus.AVAILABLE)  # should not raise
+
+
+def test_validate_book_is_available_raises_when_borrowed():
+    with pytest.raises(BookNotAvailableError):
+        validate_book_is_available(BookStatus.BORROWED)
+
+
+def test_validate_book_is_available_raises_when_retired():
+    with pytest.raises(BookNotAvailableError):
+        validate_book_is_available(BookStatus.RETIRED)
+
+
+def test_validate_member_is_active_passes():
+    validate_member_is_active(MemberStatus.ACTIVE)  # should not raise
+
+
+def test_validate_member_is_active_raises_when_inactive():
+    with pytest.raises(MemberNotActiveError):
+        validate_member_is_active(MemberStatus.INACTIVE)
+
+
+def test_validate_member_is_active_raises_when_suspended():
+    with pytest.raises(MemberNotActiveError):
+        validate_member_is_active(MemberStatus.SUSPENDED)
 
 
 def test_valid_book_transitions():

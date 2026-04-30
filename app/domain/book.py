@@ -38,6 +38,12 @@ class DuplicateISBNError(BookDomainError):
     """A book with this ISBN already exists."""
 
 
+def validate_book_is_available(status: BookStatus) -> None:
+    """Validate that a book can be borrowed."""
+    if status != BookStatus.AVAILABLE:
+        raise BookNotAvailableError(f"Book is currently '{status.value}' and cannot be borrowed")
+
+
 def validate_book_status_transition(current: BookStatus, new: BookStatus) -> None:
     """Validate that a book status transition is allowed."""
 

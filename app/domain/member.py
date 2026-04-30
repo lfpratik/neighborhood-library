@@ -34,6 +34,12 @@ class DuplicateEmailError(MemberDomainError):
     """A member with this email already exists."""
 
 
+def validate_member_is_active(status: MemberStatus) -> None:
+    """Validate that a member is eligible to borrow books."""
+    if status != MemberStatus.ACTIVE:
+        raise MemberNotActiveError(f"Member is '{status.value}' and cannot borrow books")
+
+
 def validate_member_status_transition(current: MemberStatus, new: MemberStatus) -> None:
     """Validate that a member status transition is allowed."""
     allowed = MEMBER_STATUS_TRANSITIONS.get(current, set())

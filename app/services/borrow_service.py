@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.api.schemas.borrow import BorrowCreate
 from app.database.models.borrow import Borrow
-from app.domain.book import BookNotAvailableError, BookNotFoundError, BookStatus
+from app.domain.book import BookNotFoundError, BookStatus, validate_book_is_available
 from app.domain.borrow import (
     BookAlreadyBorrowedError,
     BorrowNotFoundError,
@@ -16,7 +16,7 @@ from app.domain.borrow import (
     is_overdue,
     validate_borrow_is_active,
 )
-from app.domain.member import MemberNotActiveError, MemberNotFoundError, MemberStatus
+from app.domain.member import MemberNotFoundError, MemberStatus, validate_member_is_active
 from app.services import BaseService
 
 if TYPE_CHECKING:
@@ -32,14 +32,12 @@ class BorrowService(BaseService):
         book = self.uow.books.get_by_id(data.book_id)
         if book is None:
             raise BookNotFoundError(f"Book {data.book_id} not found")
-        if BookStatus(book.status) != BookStatus.AVAILABLE:
-            raise BookNotAvailableError(f"Book is currently {book.status}")
+        validate_book_is_available(BookStatus(book.status))
 
         member = self.uow.members.get_by_id(data.member_id)
         if member is None:
             raise MemberNotFoundError(f"Member {data.member_id} not found")
-        if MemberStatus(member.status) != MemberStatus.ACTIVE:
-            raise MemberNotActiveError(f"Member is {member.status}")
+        validate_member_is_active(MemberStatus(member.status))
 
         # Fast-fail (not the real guard — DB constraint is)
         if self.uow.borrows.get_active_by_book_id(data.book_id) is not None:
@@ -57,8 +55,8 @@ class BorrowService(BaseService):
                 }
             )
             self.uow.books.update_status(data.book_id, BookStatus.BORROWED.value)
-        except IntegrityError as exc:
-            raise BookAlreadyBorrowedError("Book already has an active borrow") from exc
+        except IntegrityError as ie:
+            raise BookAlreadyBorrowedError("Book already has an active borrow") from ie
 
         self.logger.info(
             "borrow_created",

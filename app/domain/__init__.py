@@ -5,6 +5,7 @@ from app.domain.book import (
     BookRetirementError,
     BookStatus,
     DuplicateISBNError,
+    validate_book_is_available,
     validate_book_status_transition,
 )
 from app.domain.borrow import (
@@ -22,6 +23,7 @@ from app.domain.member import (
     MemberNotActiveError,
     MemberNotFoundError,
     MemberStatus,
+    validate_member_is_active,
     validate_member_status_transition,
 )
 
@@ -32,12 +34,14 @@ __all__ = [
     "BookNotAvailableError",
     "BookRetirementError",
     "DuplicateISBNError",
+    "validate_book_is_available",
     "validate_book_status_transition",
     "MemberStatus",
     "MEMBER_STATUS_TRANSITIONS",
     "MemberNotFoundError",
     "MemberNotActiveError",
     "DuplicateEmailError",
+    "validate_member_is_active",
     "validate_member_status_transition",
     "LOAN_PERIOD_DAYS",
     "calculate_due_date",
