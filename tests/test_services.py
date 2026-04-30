@@ -8,7 +8,7 @@ from app.database.repositories.borrow_repository import BorrowRepository
 from app.database.repositories.member_repository import MemberRepository
 from app.domain.book import BookNotAvailableError, BookRetirementError, BookStatus
 from app.domain.borrow import BookAlreadyBorrowedError, BookAlreadyReturnedError
-from app.domain.member import MemberNotActiveError, MemberStatus
+from app.domain.member import DuplicateEmailError, MemberNotActiveError, MemberStatus
 from app.services.book_service import BookService
 from app.services.borrow_service import BorrowService
 from app.services.member_service import MemberService
@@ -36,7 +36,7 @@ def test_create_book(db_session):
 def test_create_member_duplicate_email(db_session):
     svc = member_service(db_session)
     svc.create_member(MemberCreate(name="Alice", email="alice@example.com"))
-    with pytest.raises(ValueError):
+    with pytest.raises(DuplicateEmailError):
         svc.create_member(MemberCreate(name="Bob", email="alice@example.com"))
 
 
@@ -140,7 +140,9 @@ def test_update_book_full(db_session):
 
 def test_update_member_partial(db_session):
     svc = member_service(db_session)
-    member = svc.create_member(MemberCreate(name="Alice", email="alice@example.com", phone="555-1234"))
+    member = svc.create_member(
+        MemberCreate(name="Alice", email="alice@example.com", phone="555-1234")
+    )
     from app.api.schemas.member import MemberUpdate
 
     updated = svc.update_member(member.id, MemberUpdate(phone="555-9999"))
@@ -155,7 +157,7 @@ def test_update_member_duplicate_email(db_session):
     bob = svc.create_member(MemberCreate(name="Bob", email="bob@example.com"))
     from app.api.schemas.member import MemberUpdate
 
-    with pytest.raises(ValueError, match="already registered"):
+    with pytest.raises(DuplicateEmailError, match="already registered"):
         svc.update_member(bob.id, MemberUpdate(email="alice@example.com"))
 
 

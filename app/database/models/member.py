@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Index, String, Text, func
+from sqlalchemy import DateTime, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.models import Base
@@ -15,7 +15,7 @@ class Member(Base):
     __tablename__ = "members"
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(
@@ -27,4 +27,4 @@ class Member(Base):
 
     borrows: Mapped[list["Borrow"]] = relationship("Borrow", back_populates="member")
 
-    __table_args__ = (Index("ix_members_email", "email", unique=True),)
+    __table_args__ = (UniqueConstraint("email", name="uq_members_email"),)

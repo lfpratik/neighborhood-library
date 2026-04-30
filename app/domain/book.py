@@ -26,6 +26,10 @@ class BookRetirementError(Exception):
     """Book cannot be retired (currently borrowed)."""
 
 
+class DuplicateISBNError(Exception):
+    """A book with this ISBN already exists."""
+
+
 def validate_book_status_transition(current: BookStatus, new: BookStatus) -> None:
     """Validate that a book status transition is allowed. Raises on invalid."""
     allowed = BOOK_STATUS_TRANSITIONS.get(current, [])

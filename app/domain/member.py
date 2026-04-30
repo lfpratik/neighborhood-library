@@ -22,6 +22,10 @@ class MemberNotActiveError(Exception):
     """Member is not active and cannot borrow books."""
 
 
+class DuplicateEmailError(Exception):
+    """A member with this email already exists."""
+
+
 def validate_member_status_transition(current: MemberStatus, new: MemberStatus) -> None:
     """Validate that a member status transition is allowed. Raises on invalid."""
     allowed = MEMBER_STATUS_TRANSITIONS.get(current, [])

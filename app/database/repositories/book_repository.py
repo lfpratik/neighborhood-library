@@ -2,9 +2,11 @@ from typing import cast
 from uuid import UUID
 
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database.models.book import Book
+from app.domain.book import DuplicateISBNError
 
 
 class BookRepository:
@@ -28,24 +30,40 @@ class BookRepository:
             pattern = f"%{search}%"
             stmt = stmt.where(or_(Book.title.ilike(pattern), Book.author.ilike(pattern)))
         total = self.db.scalar(select(func.count()).select_from(stmt.subquery()))
-        items = self.db.scalars(stmt.order_by(Book.title).offset((page - 1) * size).limit(size)).all()
+        items = self.db.scalars(
+            stmt.order_by(Book.title).offset((page - 1) * size).limit(size)
+        ).all()
         return list(items), total or 0
 
     def get_by_isbn(self, isbn: str) -> Book | None:
         return self.db.scalar(select(Book).where(Book.isbn == isbn))
 
     def create(self, data: dict) -> Book:
-        book = Book(**data)
-        self.db.add(book)
-        self.db.flush()
-        return book
+        try:
+            book = Book(**data)
+            self.db.add(book)
+            self.db.flush()
+            return book
+        except IntegrityError as e:
+            if "uq_books_isbn" in str(e.orig) or "books.isbn" in str(e.orig):
+                raise DuplicateISBNError(
+                    f"ISBN '{data.get('isbn')}' is already registered"
+                ) from None
+            raise
 
     def update(self, book_id: UUID, data: dict) -> Book:
-        book = cast(Book, self.db.get(Book, book_id))
-        for key, value in data.items():
-            setattr(book, key, value)
-        self.db.flush()
-        return book
+        try:
+            book = cast(Book, self.db.get(Book, book_id))
+            for key, value in data.items():
+                setattr(book, key, value)
+            self.db.flush()
+            return book
+        except IntegrityError as e:
+            if "uq_books_isbn" in str(e.orig) or "books.isbn" in str(e.orig):
+                raise DuplicateISBNError(
+                    f"ISBN '{data.get('isbn')}' is already registered"
+                ) from None
+            raise
 
     def update_status(self, book_id: UUID, new_status: str) -> Book:
         book = cast(Book, self.db.get(Book, book_id))

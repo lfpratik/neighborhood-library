@@ -183,28 +183,40 @@ def test_put_member_duplicate_email(client):
 
 # --- ISBN uniqueness ---
 
+
 def test_create_book_duplicate_isbn(client):
-    client.post("/api/v1/books", json={"title": "Book A", "author": "Author", "isbn": "9781234567890"})
-    resp = client.post("/api/v1/books", json={"title": "Book B", "author": "Author", "isbn": "9781234567890"})
+    client.post(
+        "/api/v1/books", json={"title": "Book A", "author": "Author", "isbn": "9781234567890"}
+    )
+    resp = client.post(
+        "/api/v1/books", json={"title": "Book B", "author": "Author", "isbn": "9781234567890"}
+    )
     assert resp.status_code == 409
     assert "9781234567890" in resp.json()["detail"]["message"]
 
 
 def test_patch_book_duplicate_isbn(client):
-    client.post("/api/v1/books", json={"title": "Book A", "author": "Author", "isbn": "9781234567890"})
-    book_b = client.post("/api/v1/books", json={"title": "Book B", "author": "Author", "isbn": "9780000000000"}).json()
+    client.post(
+        "/api/v1/books", json={"title": "Book A", "author": "Author", "isbn": "9781234567890"}
+    )
+    book_b = client.post(
+        "/api/v1/books", json={"title": "Book B", "author": "Author", "isbn": "9780000000000"}
+    ).json()
     resp = client.patch(f"/api/v1/books/{book_b['id']}", json={"isbn": "9781234567890"})
     assert resp.status_code == 409
     assert "9781234567890" in resp.json()["detail"]["message"]
 
 
 def test_create_book_same_isbn_allowed_for_same_book(client):
-    book = client.post("/api/v1/books", json={"title": "Book A", "author": "Author", "isbn": "9781234567890"}).json()
+    book = client.post(
+        "/api/v1/books", json={"title": "Book A", "author": "Author", "isbn": "9781234567890"}
+    ).json()
     resp = client.patch(f"/api/v1/books/{book['id']}", json={"isbn": "9781234567890"})
     assert resp.status_code == 200
 
 
 # --- Phone validation ---
+
 
 def test_create_member_invalid_phone(client):
     resp = client.post(
@@ -218,7 +230,9 @@ def test_create_member_invalid_phone(client):
 
 
 def test_create_member_valid_phone_formats(client):
-    for i, phone in enumerate(["+1 (555) 123-4567", "555-123-4567", "+919876543210", "(555) 123.4567"]):
+    for i, phone in enumerate(
+        ["+1 (555) 123-4567", "555-123-4567", "+919876543210", "(555) 123.4567"]
+    ):
         resp = client.post(
             "/api/v1/members",
             json={"name": f"User {i}", "email": f"user{i}@example.com", "phone": phone},
@@ -227,7 +241,9 @@ def test_create_member_valid_phone_formats(client):
 
 
 def test_patch_member_invalid_phone(client):
-    member = client.post("/api/v1/members", json={"name": "Alice", "email": "alice@example.com"}).json()
+    member = client.post(
+        "/api/v1/members", json={"name": "Alice", "email": "alice@example.com"}
+    ).json()
     resp = client.patch(f"/api/v1/members/{member['id']}", json={"phone": "not a phone"})
     assert resp.status_code == 422
     assert resp.json()["detail"]["code"] == "ValidationError"
@@ -240,6 +256,7 @@ def test_create_member_null_phone_allowed(client):
 
 
 # --- Email validation ---
+
 
 def test_create_member_invalid_email(client):
     resp = client.post(
@@ -259,13 +276,16 @@ def test_create_member_valid_email_formats(client):
 
 
 def test_patch_member_invalid_email(client):
-    member = client.post("/api/v1/members", json={"name": "Alice", "email": "alice@example.com"}).json()
+    member = client.post(
+        "/api/v1/members", json={"name": "Alice", "email": "alice@example.com"}
+    ).json()
     resp = client.patch(f"/api/v1/members/{member['id']}", json={"email": "plaintext"})
     assert resp.status_code == 422
     assert resp.json()["detail"]["code"] == "ValidationError"
 
 
 # --- 422 error shape ---
+
 
 def test_422_error_shape(client):
     resp = client.post("/api/v1/members", json={"name": "Alice"})  # missing email

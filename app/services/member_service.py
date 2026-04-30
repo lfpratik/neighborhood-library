@@ -15,9 +15,7 @@ class MemberService:
         self.repo = repo
 
     def create_member(self, data: MemberCreate) -> Member:
-        """Register a new member. Rejects duplicate emails."""
-        if self.repo.get_by_email(data.email) is not None:
-            raise ValueError(f"Email '{data.email}' is already registered")
+        """Register a new member."""
         member = self.repo.create(data.model_dump())
         self.repo.db.commit()
         self.repo.db.refresh(member)
@@ -44,10 +42,6 @@ class MemberService:
         """Replace member information or Partially update mutable member fields (only provided fields)."""
         self.get_member(member_id)
         updates = data.model_dump(exclude_unset=True)
-        if "email" in updates:
-            existing = self.repo.get_by_email(updates["email"])
-            if existing is not None and str(existing.id) != str(member_id):
-                raise ValueError(f"Email '{updates['email']}' is already registered")
         member = self.repo.update(member_id, updates)
         self.repo.db.commit()
         self.repo.db.refresh(member)

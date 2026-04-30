@@ -12,13 +12,18 @@ from app.api.routes.borrows import router as borrows_router
 from app.api.routes.members import router as members_router
 from app.config import settings
 from app.dependencies import get_db
-from app.domain.book import BookNotAvailableError, BookNotFoundError, BookRetirementError
+from app.domain.book import (
+    BookNotAvailableError,
+    BookNotFoundError,
+    BookRetirementError,
+    DuplicateISBNError,
+)
 from app.domain.borrow import (
     BookAlreadyBorrowedError,
     BookAlreadyReturnedError,
     BorrowNotFoundError,
 )
-from app.domain.member import MemberNotActiveError, MemberNotFoundError
+from app.domain.member import DuplicateEmailError, MemberNotActiveError, MemberNotFoundError
 
 
 def _not_found_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -42,7 +47,12 @@ def _validation_handler(request: Request, exc: RequestValidationError) -> JSONRe
     message = re.sub(r"^value error,\s*", "", raw_msg, flags=re.IGNORECASE)
     return JSONResponse(
         status_code=422,
-        content={"detail": {"code": "ValidationError", "message": f"{field}: {message}" if field else message}},
+        content={
+            "detail": {
+                "code": "ValidationError",
+                "message": f"{field}: {message}" if field else message,
+            }
+        },
     )
 
 
@@ -78,7 +88,8 @@ def create_app() -> FastAPI:
         BookAlreadyBorrowedError,
         BookAlreadyReturnedError,
         MemberNotActiveError,
-        ValueError,
+        DuplicateEmailError,
+        DuplicateISBNError,
     ]
     for exc_class in conflict:
         app.add_exception_handler(exc_class, _conflict_handler)
