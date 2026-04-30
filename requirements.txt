@@ -19,3 +19,4 @@ httpx
 # Code Quality
 ruff
 mypy
+structlog

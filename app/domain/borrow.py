@@ -28,6 +28,9 @@ def is_overdue(due_date: datetime, returned_at: datetime | None) -> bool:
     """Check if a borrow is overdue (past due and not yet returned)."""
     if returned_at is not None:
         return False
+    # SQLite drops tzinfo from DateTime(timezone=True) columns; normalize to UTC
+    if due_date.tzinfo is None:
+        due_date = due_date.replace(tzinfo=UTC)
     return datetime.now(UTC) > due_date
 
 

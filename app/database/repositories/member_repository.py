@@ -4,10 +4,12 @@ from uuid import UUID
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.logging import log_db_call
 from app.database.models.member import Member
+from app.database.repositories import BaseRepository
 
 
-class MemberRepository:
+class MemberRepository(BaseRepository):
     def __init__(self, db: Session) -> None:
         self.db = db
 
@@ -36,12 +38,14 @@ class MemberRepository:
         ).all()
         return list(items), total or 0
 
+    @log_db_call("db_create_member")
     def create(self, data: dict) -> Member:
         member = Member(**data)
         self.db.add(member)
         self.db.flush()
         return member
 
+    @log_db_call("db_update_member")
     def update(self, member_id: UUID, data: dict) -> Member:
         member = cast(Member, self.db.get(Member, member_id))
         for key, value in data.items():
@@ -49,6 +53,7 @@ class MemberRepository:
         self.db.flush()
         return member
 
+    @log_db_call("db_update_member_status")
     def update_status(self, member_id: UUID, new_status: str) -> Member:
         member = cast(Member, self.db.get(Member, member_id))
         member.status = new_status

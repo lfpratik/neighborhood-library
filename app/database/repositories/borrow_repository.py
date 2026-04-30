@@ -5,10 +5,12 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.logging import log_db_call
 from app.database.models.borrow import Borrow
+from app.database.repositories import BaseRepository
 
 
-class BorrowRepository:
+class BorrowRepository(BaseRepository):
     def __init__(self, db: Session) -> None:
         self.db = db
 
@@ -56,12 +58,14 @@ class BorrowRepository:
         stmt = select(Borrow).where(Borrow.book_id == book_id, Borrow.returned_at.is_(None))
         return self.db.scalar(stmt)
 
+    @log_db_call("db_create_borrow")
     def create(self, data: dict) -> Borrow:
         borrow = Borrow(**data)
         self.db.add(borrow)
         self.db.flush()
         return borrow
 
+    @log_db_call("db_update_borrow_returned_at")
     def update_returned_at(self, borrow_id: UUID, returned_at: datetime) -> Borrow:
         borrow = cast(Borrow, self.db.get(Borrow, borrow_id))
         borrow.returned_at = returned_at

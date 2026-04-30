@@ -1,5 +1,6 @@
 import re
 
+import structlog
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,6 +10,7 @@ from app.api.routes.books import router as books_router
 from app.api.routes.borrows import router as borrows_router
 from app.api.routes.members import router as members_router
 from app.config import settings
+from app.core.logging import configure_logging
 from app.database.unit_of_work import UnitOfWork
 from app.dependencies import get_uow
 from app.domain.book import (
@@ -23,9 +25,24 @@ from app.domain.borrow import (
     BorrowNotFoundError,
 )
 from app.domain.member import DuplicateEmailError, MemberNotActiveError, MemberNotFoundError
+from app.middleware import RequestLoggingMiddleware
 
+configure_logging(log_level=settings.log_level, environment=settings.environment)
+
+_logger = structlog.get_logger("app")
+
+
+# ---------------------------------------------------------------------------
+# Exception handlers
+# ---------------------------------------------------------------------------
 
 def _not_found_handler(request: Request, exc: Exception) -> JSONResponse:
+    _logger.warning(
+        "resource_not_found",
+        exc_type=type(exc).__name__,
+        message=str(exc),
+        path=request.url.path,
+    )
     return JSONResponse(
         status_code=404,
         content={"detail": {"code": type(exc).__name__, "message": str(exc)}},
@@ -33,6 +50,12 @@ def _not_found_handler(request: Request, exc: Exception) -> JSONResponse:
 
 
 def _conflict_handler(request: Request, exc: Exception) -> JSONResponse:
+    _logger.warning(
+        "request_conflict",
+        exc_type=type(exc).__name__,
+        message=str(exc),
+        path=request.url.path,
+    )
     return JSONResponse(
         status_code=409,
         content={"detail": {"code": type(exc).__name__, "message": str(exc)}},
@@ -44,6 +67,12 @@ def _validation_handler(request: Request, exc: RequestValidationError) -> JSONRe
     field = ".".join(str(loc) for loc in first["loc"] if loc != "body")
     raw_msg = first.get("msg", "Validation error")
     message = re.sub(r"^value error,\s*", "", raw_msg, flags=re.IGNORECASE)
+    _logger.warning(
+        "validation_error",
+        field=field or None,
+        message=message,
+        path=request.url.path,
+    )
     return JSONResponse(
         status_code=422,
         content={
@@ -55,8 +84,11 @@ def _validation_handler(request: Request, exc: RequestValidationError) -> JSONRe
     )
 
 
+# ---------------------------------------------------------------------------
+# App factory
+# ---------------------------------------------------------------------------
+
 def create_app() -> FastAPI:
-    """Create and configure FastAPI application."""
     app = FastAPI(
         title="Neighborhood Library Management System",
         description="Clean Architecture API for Library Management",
@@ -65,6 +97,9 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
     )
 
+    # Middleware is evaluated in reverse registration order.
+    # RequestLoggingMiddleware must be innermost so request_id is bound
+    # before any business logic runs (including CORS pre-flight handling).
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -72,6 +107,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(RequestLoggingMiddleware)
 
     app.include_router(books_router, prefix="/api/v1")
     app.include_router(members_router, prefix="/api/v1")
@@ -99,6 +135,7 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+_logger.info("application_started", environment=settings.environment, log_level=settings.log_level)
 
 
 @app.get("/api/v1/health")

@@ -13,15 +13,17 @@ from app.domain.borrow import (
     BookAlreadyBorrowedError,
     BorrowNotFoundError,
     calculate_due_date,
+    is_overdue,
     validate_borrow_is_active,
 )
 from app.domain.member import MemberNotActiveError, MemberNotFoundError, MemberStatus
+from app.services import BaseService
 
 if TYPE_CHECKING:
     from app.database.unit_of_work import UnitOfWork
 
 
-class BorrowService:
+class BorrowService(BaseService):
     def __init__(self, uow: UnitOfWork) -> None:
         self.uow = uow
 
@@ -44,7 +46,6 @@ class BorrowService:
             raise BookAlreadyBorrowedError("Book already has an active borrow")
 
         borrowed_at = datetime.now(UTC)
-
         try:
             borrow = self.uow.borrows.create(
                 {
@@ -59,7 +60,14 @@ class BorrowService:
         except IntegrityError as exc:
             raise BookAlreadyBorrowedError("Book already has an active borrow") from exc
 
-        return borrow  # ✅ no extra DB call
+        self.logger.info(
+            "borrow_created",
+            borrow_id=str(borrow.id),
+            book_id=str(borrow.book_id),
+            member_id=str(borrow.member_id),
+            due_date=borrow.due_date.isoformat(),
+        )
+        return borrow
 
     def return_book(self, borrow_id: UUID) -> Borrow:
         """Return a borrowed book. Domain layer validates it's still active."""
@@ -69,10 +77,18 @@ class BorrowService:
 
         validate_borrow_is_active(borrow.returned_at)
 
+        was_overdue = is_overdue(borrow.due_date, borrow.returned_at)
         self.uow.borrows.update_returned_at(borrow_id, datetime.now(UTC))
         self.uow.books.update_status(borrow.book_id, BookStatus.AVAILABLE.value)
 
-        return borrow  # ✅ no extra DB call
+        self.logger.info(
+            "borrow_returned",
+            borrow_id=str(borrow_id),
+            book_id=str(borrow.book_id),
+            member_id=str(borrow.member_id),
+            overdue=was_overdue,
+        )
+        return borrow
 
     def get_borrow(self, borrow_id: UUID) -> Borrow:
         """Fetch a borrow by ID or raise BorrowNotFoundError."""
