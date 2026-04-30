@@ -1,17 +1,16 @@
 import re
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy import text
-from sqlalchemy.orm import Session
 
 from app.api.routes.books import router as books_router
 from app.api.routes.borrows import router as borrows_router
 from app.api.routes.members import router as members_router
 from app.config import settings
-from app.dependencies import get_db
+from app.database.unit_of_work import UnitOfWork
+from app.dependencies import get_uow
 from app.domain.book import (
     BookNotAvailableError,
     BookNotFoundError,
@@ -103,14 +102,10 @@ app = create_app()
 
 
 @app.get("/api/v1/health")
-def health_check() -> dict:
-    """Health check endpoint that pings the database."""
-    db: Session = next(get_db())
+def health_check(uow: UnitOfWork = Depends(get_uow)) -> dict:
     try:
-        db.execute(text("SELECT 1"))
+        uow.ping()
         db_status = "ok"
     except Exception as e:
         db_status = f"error: {e}"
-    finally:
-        db.close()
     return {"status": "ok", "database": db_status}
