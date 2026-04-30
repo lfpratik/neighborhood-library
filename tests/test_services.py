@@ -6,7 +6,12 @@ from app.api.schemas.member import MemberCreate, MemberStatusUpdate
 from app.database.repositories.book_repository import BookRepository
 from app.database.repositories.borrow_repository import BorrowRepository
 from app.database.repositories.member_repository import MemberRepository
-from app.domain.book import BookNotAvailableError, BookRetirementError, BookStatus, DuplicateISBNError
+from app.domain.book import (
+    BookNotAvailableError,
+    BookRetirementError,
+    BookStatus,
+    DuplicateISBNError,
+)
 from app.domain.borrow import BookAlreadyBorrowedError, BookAlreadyReturnedError
 from app.domain.member import DuplicateEmailError, MemberNotActiveError, MemberStatus
 from app.services.book_service import BookService

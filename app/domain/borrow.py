@@ -3,15 +3,19 @@ from datetime import UTC, datetime, timedelta
 LOAN_PERIOD_DAYS = 14
 
 
-class BorrowNotFoundError(Exception):
+class BorrowDomainError(Exception):
+    """Base domain error for books."""
+
+
+class BorrowNotFoundError(BorrowDomainError):
     """Borrow record with given ID does not exist."""
 
 
-class BookAlreadyBorrowedError(Exception):
+class BookAlreadyBorrowedError(BorrowDomainError):
     """Book is already borrowed by another member."""
 
 
-class BookAlreadyReturnedError(Exception):
+class BookAlreadyReturnedError(BorrowDomainError):
     """This borrow has already been returned."""
 
 

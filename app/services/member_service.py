@@ -22,9 +22,9 @@ class MemberService:
         try:
             member = self.repo.create(data.model_dump())
             self.repo.db.commit()
-        except IntegrityError:
+        except IntegrityError as ie:
             self.repo.db.rollback()
-            raise DuplicateEmailError(f"Email '{data.email}' is already registered")
+            raise DuplicateEmailError(f"Email '{data.email}' is already registered") from ie
         self.repo.db.refresh(member)
         return member
 
@@ -52,9 +52,11 @@ class MemberService:
         try:
             member = self.repo.update(member_id, updates)
             self.repo.db.commit()
-        except IntegrityError:
+        except IntegrityError as ie:
             self.repo.db.rollback()
-            raise DuplicateEmailError(f"Email '{updates.get('email')}' is already registered")
+            raise DuplicateEmailError(
+                f"Email '{updates.get('email')}' is already registered"
+            ) from ie
         self.repo.db.refresh(member)
         return member
 

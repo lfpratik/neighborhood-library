@@ -6,6 +6,7 @@ from app.domain.book import (
     BookNotAvailableError,
     BookRetirementError,
     BookStatus,
+    InvalidBookStatusTransitionError,
     validate_book_status_transition,
 )
 from app.domain.borrow import (
@@ -15,7 +16,7 @@ from app.domain.borrow import (
     validate_borrow_is_active,
 )
 from app.domain.member import (
-    MemberNotActiveError,
+    InvalidMemberStatusTransitionError,
     MemberStatus,
     validate_member_status_transition,
 )
@@ -28,7 +29,7 @@ def test_valid_book_transitions():
 
 
 def test_invalid_book_transition_retired_to_available():
-    with pytest.raises(BookNotAvailableError):
+    with pytest.raises(InvalidBookStatusTransitionError):
         validate_book_status_transition(BookStatus.RETIRED, BookStatus.AVAILABLE)
 
 
@@ -45,7 +46,7 @@ def test_valid_member_transitions():
 
 
 def test_invalid_member_transition_inactive_to_suspended():
-    with pytest.raises(MemberNotActiveError):
+    with pytest.raises(InvalidMemberStatusTransitionError):
         validate_member_status_transition(MemberStatus.INACTIVE, MemberStatus.SUSPENDED)
 
 

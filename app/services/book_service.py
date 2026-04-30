@@ -7,7 +7,6 @@ from app.database.models.book import Book
 from app.database.repositories.book_repository import BookRepository
 from app.domain.book import (
     BookNotFoundError,
-    BookRetirementError,
     BookStatus,
     DuplicateISBNError,
     validate_book_status_transition,
@@ -62,12 +61,8 @@ class BookService:
     def update_status(self, book_id: UUID, data: BookStatusUpdate) -> Book:
         """Change book status. Domain layer validates the transition."""
         book = self.get_book(book_id)
-        current = BookStatus(book.status)
-        new = data.status
-        if current == BookStatus.BORROWED and new == BookStatus.RETIRED:
-            raise BookRetirementError("Book must be returned before retiring")
-        validate_book_status_transition(current, new)
-        book = self.repo.update_status(book_id, new.value)
+        validate_book_status_transition(BookStatus(book.status), data.status)
+        book = self.repo.update_status(book_id, data.status.value)
         self.repo.db.commit()
         self.repo.db.refresh(book)
         return book
