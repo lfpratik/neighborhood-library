@@ -105,16 +105,20 @@ def test_list_overdue(client, db_session):
 
 
 def test_put_book(client):
-    book = client.post("/api/v1/books", json={"title": "Old Title", "author": "Old Author"}).json()
+    book = client.post(
+        "/api/v1/books", json={"title": "Old Title", "author": "Old Author", "genre": "Sci-Fi"}
+    ).json()
+    assert book["genre"] == "Sci-Fi"
+    # PUT without genre — should clear it to None (full replacement)
     resp = client.put(
         f"/api/v1/books/{book['id']}",
-        json={"title": "New Title", "author": "New Author", "genre": "Fiction"},
+        json={"title": "New Title", "author": "New Author"},
     )
     assert resp.status_code == 200
     data = resp.json()
     assert data["title"] == "New Title"
     assert data["author"] == "New Author"
-    assert data["genre"] == "Fiction"
+    assert data["genre"] is None
 
 
 def test_patch_book(client):
@@ -139,17 +143,20 @@ def test_put_book_not_found(client):
 
 def test_put_member(client):
     member = client.post(
-        "/api/v1/members", json={"name": "Old Name", "email": "old@example.com"}
+        "/api/v1/members",
+        json={"name": "Old Name", "email": "old@example.com", "phone": "555-0000"},
     ).json()
+    assert member["phone"] == "555-0000"
+    # PUT without phone — should clear it to None (full replacement)
     resp = client.put(
         f"/api/v1/members/{member['id']}",
-        json={"name": "New Name", "email": "new@example.com", "phone": "555-1234"},
+        json={"name": "New Name", "email": "new@example.com"},
     )
     assert resp.status_code == 200
     data = resp.json()
     assert data["name"] == "New Name"
     assert data["email"] == "new@example.com"
-    assert data["phone"] == "555-1234"
+    assert data["phone"] is None
 
 
 def test_patch_member(client):
@@ -190,6 +197,21 @@ def test_create_book_duplicate_isbn(client):
     )
     resp = client.post(
         "/api/v1/books", json={"title": "Book B", "author": "Author", "isbn": "9781234567890"}
+    )
+    assert resp.status_code == 409
+    assert "9781234567890" in resp.json()["detail"]["message"]
+
+
+def test_put_book_duplicate_isbn(client):
+    client.post(
+        "/api/v1/books", json={"title": "Book A", "author": "Author", "isbn": "9781234567890"}
+    )
+    book_b = client.post(
+        "/api/v1/books", json={"title": "Book B", "author": "Author", "isbn": "9780000000000"}
+    ).json()
+    resp = client.put(
+        f"/api/v1/books/{book_b['id']}",
+        json={"title": "Book B", "author": "Author", "isbn": "9781234567890"},
     )
     assert resp.status_code == 409
     assert "9781234567890" in resp.json()["detail"]["message"]

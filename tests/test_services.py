@@ -59,7 +59,27 @@ def test_update_book_duplicate_isbn(db_session):
     from app.api.schemas.book import BookUpdate
 
     with pytest.raises(DuplicateISBNError, match="already registered"):
-        svc.update_book(book_b.id, BookUpdate(isbn="9781234567890"))
+        svc.update_book(book_b.id, BookUpdate(isbn="9781234567890"))  # PATCH path
+
+
+def test_replace_book_duplicate_isbn(db_session):
+    svc = book_service(db_session)
+    svc.create_book(BookCreate(title="Book A", author="Author", isbn="9781234567890"))
+    book_b = svc.create_book(BookCreate(title="Book B", author="Author", isbn="9780000000000"))
+    from app.api.schemas.book import BookUpdate
+
+    with pytest.raises(DuplicateISBNError, match="already registered"):
+        svc.replace_book(book_b.id, BookUpdate(title="Book B", author="Author", isbn="9781234567890"))  # PUT path
+
+
+def test_replace_member_duplicate_email(db_session):
+    svc = member_service(db_session)
+    svc.create_member(MemberCreate(name="Alice", email="alice@example.com"))
+    bob = svc.create_member(MemberCreate(name="Bob", email="bob@example.com"))
+    from app.api.schemas.member import MemberUpdate
+
+    with pytest.raises(DuplicateEmailError, match="already registered"):
+        svc.replace_member(bob.id, MemberUpdate(name="Bob", email="alice@example.com"))  # PUT path
 
 
 def test_borrow_book_success(db_session):
@@ -151,13 +171,13 @@ def test_update_book_partial(db_session):
 
 def test_update_book_full(db_session):
     svc = book_service(db_session)
-    book = svc.create_book(BookCreate(title="Original", author="Author"))
+    book = svc.create_book(BookCreate(title="Original", author="Author", genre="Sci-Fi"))
     from app.api.schemas.book import BookUpdate
 
-    updated = svc.update_book(book.id, BookUpdate(title="New", author="New Author", genre="Drama"))
+    updated = svc.replace_book(book.id, BookUpdate(title="New", author="New Author"))
     assert updated.title == "New"
     assert updated.author == "New Author"
-    assert updated.genre == "Drama"
+    assert updated.genre is None
 
 
 def test_update_member_partial(db_session):

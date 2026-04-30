@@ -45,8 +45,20 @@ class BookService:
         """List books with optional status and search filters."""
         return self.repo.get_all(page=page, size=size, status=status, search=search)
 
+    def replace_book(self, book_id: UUID, data: BookUpdate) -> Book:
+        """Full replacement — all fields written, unset fields cleared to None (PUT)."""
+        self.get_book(book_id)
+        try:
+            book = self.repo.update(book_id, data.model_dump())
+            self.repo.db.commit()
+        except IntegrityError as ie:
+            self.repo.db.rollback()
+            raise DuplicateISBNError(f"ISBN '{data.isbn}' is already registered") from ie
+        self.repo.db.refresh(book)
+        return book
+
     def update_book(self, book_id: UUID, data: BookUpdate) -> Book:
-        """Replace book information or Partially update mutable book fields (only provided fields)."""
+        """Partial update — only provided fields written, others left unchanged (PATCH)."""
         self.get_book(book_id)
         updates = data.model_dump(exclude_unset=True)
         try:

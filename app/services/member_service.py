@@ -45,8 +45,20 @@ class MemberService:
         """List members with optional status and search filters."""
         return self.repo.get_all(page=page, size=size, status=status, search=search)
 
+    def replace_member(self, member_id: UUID, data: MemberUpdate) -> Member:
+        """Full replacement — all fields written, unset fields cleared to None (PUT)."""
+        self.get_member(member_id)
+        try:
+            member = self.repo.update(member_id, data.model_dump())
+            self.repo.db.commit()
+        except IntegrityError as ie:
+            self.repo.db.rollback()
+            raise DuplicateEmailError(f"Email '{data.email}' is already registered") from ie
+        self.repo.db.refresh(member)
+        return member
+
     def update_member(self, member_id: UUID, data: MemberUpdate) -> Member:
-        """Replace member information or Partially update mutable member fields (only provided fields)."""
+        """Partial update — only provided fields written, others left unchanged (PATCH)."""
         self.get_member(member_id)
         updates = data.model_dump(exclude_unset=True)
         try:
