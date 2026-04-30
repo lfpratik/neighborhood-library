@@ -1,7 +1,7 @@
 # Core Framework (Latest stable versions)
 fastapi
 uvicorn[standard]
-pydantic
+pydantic[email]
 pydantic-settings
 
 # Database
