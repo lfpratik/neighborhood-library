@@ -11,50 +11,58 @@ Take-home assignment for Senior Python Architect role.
 - PostgreSQL 15
 - Alembic (migrations)
 - Pydantic v2 (schemas)
+- structlog (structured JSON logging)
 - pytest + httpx (testing)
 - Docker Compose (local dev)
 
 ## Architecture: 3-Layer + Domain Kernel
 
 ```
-Request → Routes → Services → Repositories → Database
-                      ↓
-                   Domain (enums, exceptions, constants)
+Request → Middleware → Routes → Services → UnitOfWork → Repositories → Database
+                                    ↓
+                                 Domain (enums, validators, exceptions, constants)
 ```
 
+- **Middleware** (`app/middleware.py`): Generates request_id, binds structlog contextvars, logs request_completed / request_failed.
 - **Routes** (`app/api/routes/`): HTTP concerns only. Parse request, call service, return response with correct status code.
-- **Services** (`app/services/`): ALL business logic lives here. Status transitions, borrowing rules, validation.
-- **Repositories** (`app/database/repositories/`): Database queries only. No business logic. Receive `Session` via DI.
-- **Domain** (`app/domain/`): Pure Python. Enums, custom exceptions, constants. Zero framework imports.
+- **Services** (`app/services/`): ALL business logic lives here. Status transitions, borrowing rules, validation. Never call `db.commit()` — commit is owned by the UoW.
+- **Unit of Work** (`app/database/unit_of_work.py`): Wraps a single `Session`; exposes all repositories; commits or rolls back as one atomic unit.
+- **Repositories** (`app/database/repositories/`): Database queries only. No business logic. Receive `Session` via UoW.
+- **Domain** (`app/domain/`): Pure Python. Enums, validator functions, custom exceptions, constants. Zero framework imports.
 - **Schemas** (`app/api/schemas/`): Pydantic v2 models for request/response. Anti-corruption layer between API and internals.
+- **Core** (`app/core/`): Cross-cutting infrastructure — `logging.py` (structlog setup, `LoggerMixin`, `log_db_call`).
 
 ## Project Structure
 ```
 app/
 ├── __init__.py
-├── main.py              # FastAPI app, router includes, exception handlers
-├── config.py            # Settings via pydantic-settings
-├── dependencies.py      # DI: get_db, get_*_repository, get_*_service
+├── main.py              # FastAPI app, router includes, exception handlers, configure_logging()
+├── config.py            # Settings via pydantic-settings (incl. LOG_FORMAT, LOG_LEVEL)
+├── dependencies.py      # DI: get_db, get_uow, get_*_service
+├── middleware.py        # RequestLoggingMiddleware — request_id, structlog contextvars
+├── core/
+│   └── logging.py      # configure_logging(), LoggerMixin, log_db_call decorator
 ├── domain/
-│   ├── __init__.py      # Re-exports all enums, exceptions, constants
-│   ├── book.py          # BookStatus enum, transitions, book exceptions
-│   ├── member.py        # MemberStatus enum, transitions, member exceptions
-│   └── borrow.py        # LOAN_PERIOD_DAYS, borrow exceptions
+│   ├── __init__.py      # Re-exports all enums, validators, exceptions, constants
+│   ├── book.py          # BookStatus, transitions, validate_book_is_available(), exceptions
+│   ├── member.py        # MemberStatus, transitions, validate_member_is_active(), exceptions
+│   └── borrow.py        # LOAN_PERIOD_DAYS, validate_borrow_is_active(), exceptions
 ├── services/
-│   ├── __init__.py
+│   ├── __init__.py      # BaseService(LoggerMixin)
 │   ├── book_service.py
 │   ├── member_service.py
 │   └── borrow_service.py
 ├── database/
 │   ├── __init__.py
 │   ├── session.py       # create_engine, SessionLocal
+│   ├── unit_of_work.py  # UnitOfWork — owns Session, exposes repos, commits/rollbacks
 │   ├── models/
 │   │   ├── __init__.py  # Base class with id, created_at, updated_at
 │   │   ├── book.py
 │   │   ├── member.py
 │   │   └── borrow.py
 │   └── repositories/
-│       ├── __init__.py
+│       ├── __init__.py  # BaseRepository(LoggerMixin)
 │       ├── book_repository.py
 │       ├── member_repository.py
 │       └── borrow_repository.py
@@ -64,7 +72,7 @@ app/
     │   ├── __init__.py
     │   ├── common.py    # PaginatedResponse, ErrorDetail
     │   ├── book.py
-    │   ├── member.py
+    │   ├── member.py    # MemberCreate uses EmailStr for validated email input
     │   └── borrow.py
     └── routes/
         ├── __init__.py
@@ -631,7 +639,7 @@ class Base(DeclarativeBase):
 ## Frontend — Next.js App
 
 ### Tech Stack
-- Next.js 14 (App Router)
+- Next.js 16 (App Router)
 - TypeScript
 - Tailwind CSS
 - shadcn/ui components
@@ -659,18 +667,20 @@ frontend/
 └── src/
     ├── app/
     │   ├── layout.tsx          # Root layout with Sidebar
+    │   ├── error.tsx           # Segment-level error boundary (unstable_retry)
+    │   ├── global-error.tsx    # Root layout error boundary
     │   ├── page.tsx            # Dashboard
     │   ├── books/
     │   │   ├── page.tsx        # Books list
-    │   │   └── [id]/
+    │   │   └── id/
     │   │       └── page.tsx    # Book detail (view + edit)
     │   ├── members/
     │   │   ├── page.tsx        # Members list
-    │   │   └── [id]/
+    │   │   └── id/
     │   │       └── page.tsx    # Member detail (view + edit)
     │   └── borrows/
     │       ├── page.tsx        # Borrows list
-    │       └── [id]/
+    │       └── id/
     │           └── page.tsx    # Borrow detail (read-only)
     │
     ├── components/
@@ -690,7 +700,8 @@ frontend/
     │       └── BorrowFormModal.tsx
     │
     ├── lib/
-    │   ├── api.ts              # Typed fetch wrapper
+    │   ├── api.ts              # Typed fetch wrapper (uses API_ENDPOINTS from constants.ts)
+    │   ├── constants.ts        # PAGE_SIZE, API_ENDPOINTS
     │   └── utils.ts            # Date formatting, status colors
     │
     └── types/

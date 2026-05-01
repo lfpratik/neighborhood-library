@@ -6,7 +6,7 @@ A REST API for managing a neighborhood library — books, members, and lending o
 
 - **Python 3.11** · **FastAPI** (sync) · **SQLAlchemy 2.0** (sync) · **PostgreSQL 15**
 - **Alembic** (migrations) · **Pydantic v2** · **pytest** (tests)
-- **Next.js 14** · **TypeScript** · **Tailwind CSS** · **shadcn/ui** (frontend)
+- **Next.js 16** · **TypeScript** · **Tailwind CSS** · **shadcn/ui** (frontend)
 - **Docker Compose** (demo) · **Devbox** (local dev)
 
 ## Quick Start — Docker Demo

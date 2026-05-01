@@ -1,10 +1,10 @@
 # Neighborhood Library — Frontend
 
-Next.js 14 frontend for the Neighborhood Library management system.
+Next.js 16 frontend for the Neighborhood Library management system.
 
 ## Tech Stack
 
-- **Next.js 14** (App Router) · **TypeScript** · **Tailwind CSS** · **shadcn/ui**
+- **Next.js 16** (App Router) · **TypeScript** · **Tailwind CSS** · **shadcn/ui**
 - **Lucide React** (icons) · **Sonner** (toasts)
 
 ## Quick Start
