@@ -2,7 +2,7 @@
 Logging infrastructure — configure once, use everywhere.
 
 Public surface:
-  configure_logging(log_level, environment)  — call at app startup
+  configure_logging(log_level, log_format)   — call at app startup
   LoggerMixin                                — add self.logger to any class
   log_db_call(event_name)                    — repository-only decorator
   audit                                      — separate audit logger for services
@@ -13,8 +13,8 @@ from __future__ import annotations
 import logging
 import sys
 import time
+from collections.abc import Callable
 from functools import cached_property, wraps
-from typing import Callable
 
 import structlog
 
@@ -31,23 +31,25 @@ audit: structlog.stdlib.BoundLogger = structlog.get_logger("audit")
 # Configuration
 # ---------------------------------------------------------------------------
 
-def configure_logging(log_level: str = "INFO", environment: str = "development") -> None:
+
+def configure_logging(log_level: str = "INFO", log_format: str = "json") -> None:
     """Configure structlog and stdlib logging.  Call once at application startup.
 
-    Dev:  coloured, human-readable output via ConsoleRenderer.
-    Prod: machine-readable JSON — one compact line per event, ready for
-          Loki / Datadog / CloudWatch.
+    JSON (default): machine-readable, one compact line per event — works in
+                    both local dev and production. Ready for Loki / Datadog /
+                    CloudWatch with zero changes.
+    console:        coloured, human-readable output — opt-in via LOG_FORMAT=console.
 
     structlog.contextvars.merge_contextvars pulls request_id, method, and path
     (bound by RequestLoggingMiddleware) into every log record automatically —
     no manual passing through service or repository call stacks.
     """
     level = getattr(logging, log_level.upper(), logging.INFO)
-    is_production = environment == "production"
+    is_production = log_format != "console"
 
     shared_processors: list[structlog.types.Processor] = [
-        structlog.contextvars.merge_contextvars,   # request_id, method, path
-        structlog.stdlib.add_logger_name,           # which class / module
+        structlog.contextvars.merge_contextvars,  # request_id, method, path
+        structlog.stdlib.add_logger_name,  # which class / module
         structlog.stdlib.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
@@ -86,6 +88,7 @@ def configure_logging(log_level: str = "INFO", environment: str = "development")
 # LoggerMixin
 # ---------------------------------------------------------------------------
 
+
 class LoggerMixin:
     """Provides self.logger bound to the concrete class name.
 
@@ -108,6 +111,7 @@ class LoggerMixin:
 # @log_db_call — repository decorator
 # ---------------------------------------------------------------------------
 
+
 def log_db_call(event_name: str) -> Callable:
     """Decorator for repository methods only.
 
@@ -124,6 +128,7 @@ def log_db_call(event_name: str) -> Callable:
     structlog.contextvars, so every repository log line carries the request_id
     bound by the middleware without any manual passing.
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(self: LoggerMixin, *args, **kwargs):

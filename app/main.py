@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from app.api.routes.books import router as books_router
 from app.api.routes.borrows import router as borrows_router
 from app.api.routes.members import router as members_router
-from app.config import settings
+from app.config import get_settings
 from app.core.logging import configure_logging
 from app.database.unit_of_work import UnitOfWork
 from app.dependencies import get_uow
@@ -24,20 +24,21 @@ from app.domain.borrow import (
     BookAlreadyReturnedError,
     BorrowNotFoundError,
 )
-from app.domain.member import DuplicateEmailError, MemberNotActiveError, MemberNotFoundError
+from app.domain.member import (
+    DuplicateEmailError,
+    MemberNotActiveError,
+    MemberNotFoundError,
+)
 from app.middleware import RequestLoggingMiddleware
-
-configure_logging(log_level=settings.log_level, environment=settings.environment)
-
-_logger = structlog.get_logger("app")
-
 
 # ---------------------------------------------------------------------------
 # Exception handlers
 # ---------------------------------------------------------------------------
 
+
 def _not_found_handler(request: Request, exc: Exception) -> JSONResponse:
-    _logger.warning(
+    logger = structlog.get_logger("app")
+    logger.warning(
         "resource_not_found",
         exc_type=type(exc).__name__,
         message=str(exc),
@@ -50,7 +51,8 @@ def _not_found_handler(request: Request, exc: Exception) -> JSONResponse:
 
 
 def _conflict_handler(request: Request, exc: Exception) -> JSONResponse:
-    _logger.warning(
+    logger = structlog.get_logger("app")
+    logger.warning(
         "request_conflict",
         exc_type=type(exc).__name__,
         message=str(exc),
@@ -63,16 +65,20 @@ def _conflict_handler(request: Request, exc: Exception) -> JSONResponse:
 
 
 def _validation_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    logger = structlog.get_logger("app")
+
     first = exc.errors()[0]
     field = ".".join(str(loc) for loc in first["loc"] if loc != "body")
     raw_msg = first.get("msg", "Validation error")
     message = re.sub(r"^value error,\s*", "", raw_msg, flags=re.IGNORECASE)
-    _logger.warning(
+
+    logger.warning(
         "validation_error",
         field=field or None,
         message=message,
         path=request.url.path,
     )
+
     return JSONResponse(
         status_code=422,
         content={
@@ -88,7 +94,18 @@ def _validation_handler(request: Request, exc: RequestValidationError) -> JSONRe
 # App factory
 # ---------------------------------------------------------------------------
 
+
 def create_app() -> FastAPI:
+    settings = get_settings()
+
+    # ✅ configure logging here (not at import time)
+    configure_logging(
+        log_level=settings.log_level,
+        log_format=settings.log_format,
+    )
+
+    logger = structlog.get_logger("app")
+
     app = FastAPI(
         title="Neighborhood Library Management System",
         description="Clean Architecture API for Library Management",
@@ -97,9 +114,7 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
     )
 
-    # Middleware is evaluated in reverse registration order.
-    # RequestLoggingMiddleware must be innermost so request_id is bound
-    # before any business logic runs (including CORS pre-flight handling).
+    # Middleware
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -109,15 +124,17 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(RequestLoggingMiddleware)
 
-    app.include_router(books_router, prefix="/api/v1")
-    app.include_router(members_router, prefix="/api/v1")
-    app.include_router(borrows_router, prefix="/api/v1")
+    # Routers
+    app.include_router(books_router, prefix=settings.api_v1_prefix)
+    app.include_router(members_router, prefix=settings.api_v1_prefix)
+    app.include_router(borrows_router, prefix=settings.api_v1_prefix)
 
-    not_found: list[type[Exception]] = [BookNotFoundError, MemberNotFoundError, BorrowNotFoundError]
-    for exc_class in not_found:
-        app.add_exception_handler(exc_class, _not_found_handler)
+    # Exception handlers
+    not_found = [BookNotFoundError, MemberNotFoundError, BorrowNotFoundError]
+    for exc in not_found:
+        app.add_exception_handler(exc, _not_found_handler)
 
-    conflict: list[type[Exception]] = [
+    conflict = [
         BookNotAvailableError,
         BookRetirementError,
         BookAlreadyBorrowedError,
@@ -126,16 +143,26 @@ def create_app() -> FastAPI:
         DuplicateEmailError,
         DuplicateISBNError,
     ]
-    for exc_class in conflict:
-        app.add_exception_handler(exc_class, _conflict_handler)
+    for exc in conflict:
+        app.add_exception_handler(exc, _conflict_handler)
 
     app.add_exception_handler(RequestValidationError, _validation_handler)
+
+    logger.info(
+        "application_started",
+        environment=settings.environment,
+        log_level=settings.log_level,
+    )
 
     return app
 
 
 app = create_app()
-_logger.info("application_started", environment=settings.environment, log_level=settings.log_level)
+
+
+# ---------------------------------------------------------------------------
+# Health check
+# ---------------------------------------------------------------------------
 
 
 @app.get("/api/v1/health")
@@ -145,4 +172,5 @@ def health_check(uow: UnitOfWork = Depends(get_uow)) -> dict:
         db_status = "ok"
     except Exception as e:
         db_status = f"error: {e}"
+
     return {"status": "ok", "database": db_status}

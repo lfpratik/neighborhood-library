@@ -3,7 +3,7 @@ from typing import cast
 from uuid import UUID
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, joinedload, load_only
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.logging import log_db_call
 from app.database.models.book import Book
