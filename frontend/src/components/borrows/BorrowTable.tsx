@@ -16,14 +16,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { returnBorrow } from "@/lib/api";
 import { getStatusColor, formatDate, isOverdue } from "@/lib/utils";
-import type { Borrow } from "@/types";
+import type { BorrowSummary } from "@/types";
 
 interface Props {
-  borrows: Borrow[];
+  borrows: BorrowSummary[];
   onRefresh: () => void;
 }
 
-function getBorrowStatus(borrow: Borrow): "returned" | "overdue" | "active" {
+function getBorrowStatus(borrow: BorrowSummary): "returned" | "overdue" | "active" {
   if (borrow.returned_at !== null) return "returned";
   if (isOverdue(borrow.due_date, borrow.returned_at)) return "overdue";
   return "active";
@@ -32,7 +32,7 @@ function getBorrowStatus(borrow: Borrow): "returned" | "overdue" | "active" {
 export default function BorrowTable({ borrows, onRefresh }: Props) {
   const [returning, setReturning] = useState<string | null>(null);
 
-  async function handleReturn(borrow: Borrow) {
+  async function handleReturn(borrow: BorrowSummary) {
     setReturning(borrow.id);
     try {
       await returnBorrow(borrow.id);
@@ -73,12 +73,12 @@ export default function BorrowTable({ borrows, onRefresh }: Props) {
               <TableRow key={borrow.id} className={status === "overdue" ? "bg-red-50" : ""}>
                 <TableCell className="font-medium">
                   <Link href={`/books/${borrow.book_id}`} className="text-blue-600 hover:underline">
-                    {borrow.book.title}
+                    {borrow.book_title}
                   </Link>
                 </TableCell>
                 <TableCell>
                   <Link href={`/members/${borrow.member_id}`} className="text-blue-600 hover:underline">
-                    {borrow.member.name}
+                    {borrow.member_name}
                   </Link>
                 </TableCell>
                 <TableCell className="text-stone-500">{formatDate(borrow.borrowed_at)}</TableCell>

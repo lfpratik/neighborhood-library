@@ -6,9 +6,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BorrowTable from "@/components/borrows/BorrowTable";
 import BorrowFormModal from "@/components/borrows/BorrowFormModal";
 import { getBorrows } from "@/lib/api";
-import type { Borrow } from "@/types";
-
-const PAGE_SIZE = 10;
+import { PAGE_SIZE } from "@/lib/constants";
+import type { BorrowSummary } from "@/types";
+import { toast } from "sonner";
 
 type TabValue = "all" | "active" | "overdue" | "returned";
 
@@ -38,7 +38,7 @@ function SkeletonRows() {
 }
 
 export default function BorrowsPage() {
-  const [borrows, setBorrows] = useState<Borrow[]>([]);
+  const [borrows, setBorrows] = useState<BorrowSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [activeTab, setActiveTab] = useState<TabValue>("all");
@@ -54,6 +54,7 @@ export default function BorrowsPage() {
         setBorrows(res.items);
         setTotal(res.total);
       })
+      .catch((err: Error) => toast.error(err.message))
       .finally(() => setLoading(false));
   }
 

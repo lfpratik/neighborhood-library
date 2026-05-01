@@ -11,7 +11,12 @@ import { Button } from "@/components/ui/button";
 import BackLink from "@/components/shared/BackLink";
 import DetailField from "@/components/shared/DetailField";
 import { getBorrow, returnBorrow } from "@/lib/api";
-import { formatDate, formatDateTime, getStatusColor, isOverdue } from "@/lib/utils";
+import {
+  formatDate,
+  formatDateTime,
+  getStatusColor,
+  isOverdue,
+} from "@/lib/utils";
 import type { Borrow } from "@/types";
 
 function getBorrowStatus(borrow: Borrow): "returned" | "overdue" | "active" {
@@ -95,7 +100,10 @@ export default function BorrowDetailPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-bold text-stone-800">Borrow Details</h1>
-        <Badge variant={getStatusColor("borrow", borrowStatus)} className="capitalize">
+        <Badge
+          variant={getStatusColor("borrow", borrowStatus)}
+          className="capitalize"
+        >
           {borrowStatus}
         </Badge>
       </div>
@@ -107,7 +115,10 @@ export default function BorrowDetailPage() {
             <DetailField
               label="Book"
               value={
-                <Link href={`/books/${borrow.book_id}`} className="text-blue-600 hover:underline">
+                <Link
+                  href={`/books/${borrow.book_id}`}
+                  className="text-blue-600 hover:underline"
+                >
                   {borrow.book.title} by {borrow.book.author}
                 </Link>
               }
@@ -115,13 +126,22 @@ export default function BorrowDetailPage() {
             <DetailField
               label="Member"
               value={
-                <Link href={`/members/${borrow.member_id}`} className="text-blue-600 hover:underline">
+                <Link
+                  href={`/members/${borrow.member_id}`}
+                  className="text-blue-600 hover:underline"
+                >
                   {borrow.member.name} ({borrow.member.email})
                 </Link>
               }
             />
-            <DetailField label="Borrowed At" value={formatDateTime(borrow.borrowed_at)} />
-            <DetailField label="Due Date" value={formatDateTime(borrow.due_date)} />
+            <DetailField
+              label="Borrowed At"
+              value={formatDateTime(borrow.borrowed_at)}
+            />
+            <DetailField
+              label="Due Date"
+              value={formatDateTime(borrow.due_date)}
+            />
             <DetailField
               label="Returned At"
               value={
@@ -133,7 +153,10 @@ export default function BorrowDetailPage() {
               }
             />
             <DetailField label="Notes" value={borrow.notes ?? "—"} />
-            <DetailField label="Created" value={formatDate(borrow.created_at)} />
+            <DetailField
+              label="Created"
+              value={formatDate(borrow.created_at)}
+            />
           </div>
         </CardContent>
       </Card>
@@ -143,7 +166,8 @@ export default function BorrowDetailPage() {
         <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-amber-800">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span className="text-sm font-medium">
-            This book is {overduedays} {overduedays === 1 ? "day" : "days"} overdue
+            This book is {overduedays} {overduedays === 1 ? "day" : "days"}{" "}
+            overdue
           </span>
         </div>
       )}

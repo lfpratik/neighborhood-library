@@ -1,4 +1,5 @@
-import type { Book, Member, Borrow, PaginatedResponse } from "@/types";
+import type { Book, Member, Borrow, BorrowSummary, PaginatedResponse } from "@/types";
+import { API_ENDPOINTS } from "@/lib/constants";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
@@ -30,11 +31,11 @@ function buildQuery(
 }
 
 export function getBook(id: string): Promise<Book> {
-  return fetchAPI(`/books/${id}`);
+  return fetchAPI(API_ENDPOINTS.books.detail(id));
 }
 
 export function updateBook(id: string, data: Partial<Book>): Promise<Book> {
-  return fetchAPI(`/books/${id}`, {
+  return fetchAPI(API_ENDPOINTS.books.detail(id), {
     method: "PATCH",
     body: JSON.stringify(data),
   });
@@ -48,32 +49,32 @@ export function getBooks(
     size: number;
   }>,
 ): Promise<PaginatedResponse<Book>> {
-  return fetchAPI(`/books${buildQuery(params)}`);
+  return fetchAPI(`${API_ENDPOINTS.books.list}${buildQuery(params)}`);
 }
 
 export function createBook(data: Partial<Book>): Promise<Book> {
-  return fetchAPI("/books", { method: "POST", body: JSON.stringify(data) });
+  return fetchAPI(API_ENDPOINTS.books.list, { method: "POST", body: JSON.stringify(data) });
 }
 
 export function updateBookStatus(
   id: string,
   status: Book["status"],
 ): Promise<Book> {
-  return fetchAPI(`/books/${id}/status`, {
+  return fetchAPI(API_ENDPOINTS.books.status(id), {
     method: "PATCH",
     body: JSON.stringify({ status }),
   });
 }
 
 export function getMember(id: string): Promise<Member> {
-  return fetchAPI(`/members/${id}`);
+  return fetchAPI(API_ENDPOINTS.members.detail(id));
 }
 
 export function updateMember(
   id: string,
   data: Partial<Member>,
 ): Promise<Member> {
-  return fetchAPI(`/members/${id}`, {
+  return fetchAPI(API_ENDPOINTS.members.detail(id), {
     method: "PATCH",
     body: JSON.stringify(data),
   });
@@ -87,25 +88,25 @@ export function getMembers(
     size: number;
   }>,
 ): Promise<PaginatedResponse<Member>> {
-  return fetchAPI(`/members${buildQuery(params)}`);
+  return fetchAPI(`${API_ENDPOINTS.members.list}${buildQuery(params)}`);
 }
 
 export function createMember(data: Partial<Member>): Promise<Member> {
-  return fetchAPI("/members", { method: "POST", body: JSON.stringify(data) });
+  return fetchAPI(API_ENDPOINTS.members.list, { method: "POST", body: JSON.stringify(data) });
 }
 
 export function updateMemberStatus(
   id: string,
   status: Member["status"],
 ): Promise<Member> {
-  return fetchAPI(`/members/${id}/status`, {
+  return fetchAPI(API_ENDPOINTS.members.status(id), {
     method: "PATCH",
     body: JSON.stringify({ status }),
   });
 }
 
 export function getBorrow(id: string): Promise<Borrow> {
-  return fetchAPI(`/borrows/${id}`);
+  return fetchAPI(API_ENDPOINTS.borrows.detail(id));
 }
 
 export function getBorrows(
@@ -117,8 +118,8 @@ export function getBorrows(
     page: number;
     size: number;
   }>,
-): Promise<PaginatedResponse<Borrow>> {
-  return fetchAPI(`/borrows${buildQuery(params)}`);
+): Promise<PaginatedResponse<BorrowSummary>> {
+  return fetchAPI(`${API_ENDPOINTS.borrows.list}${buildQuery(params)}`);
 }
 
 export function createBorrow(data: {
@@ -126,9 +127,9 @@ export function createBorrow(data: {
   member_id: string;
   notes?: string;
 }): Promise<Borrow> {
-  return fetchAPI("/borrows", { method: "POST", body: JSON.stringify(data) });
+  return fetchAPI(API_ENDPOINTS.borrows.list, { method: "POST", body: JSON.stringify(data) });
 }
 
 export function returnBorrow(id: string): Promise<Borrow> {
-  return fetchAPI(`/borrows/${id}/return`, { method: "PATCH" });
+  return fetchAPI(API_ENDPOINTS.borrows.return(id), { method: "PATCH" });
 }

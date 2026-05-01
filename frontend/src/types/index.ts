@@ -22,6 +22,19 @@ export interface Member {
   updated_at: string;
 }
 
+export interface BorrowSummary {
+  id: string;
+  book_id: string;
+  member_id: string;
+  borrowed_at: string;
+  due_date: string;
+  returned_at: string | null;
+  notes: string | null;
+  created_at: string;
+  book_title: string;
+  member_name: string;
+}
+
 export interface Borrow {
   id: string;
   book_id: string;

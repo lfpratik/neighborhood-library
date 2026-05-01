@@ -13,9 +13,9 @@ import {
 import MemberTable from "@/components/members/MemberTable";
 import MemberFormModal from "@/components/members/MemberFormModal";
 import { getMembers } from "@/lib/api";
+import { PAGE_SIZE } from "@/lib/constants";
 import type { Member } from "@/types";
-
-const PAGE_SIZE = 10;
+import { toast } from "sonner";
 
 function SkeletonRows() {
   return (
@@ -56,6 +56,7 @@ export default function MembersPage() {
         setMembers(res.items);
         setTotal(res.total);
       })
+      .catch((err: Error) => toast.error(err.message))
       .finally(() => setLoading(false));
   }
 

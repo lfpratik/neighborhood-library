@@ -25,9 +25,11 @@ import {
   getStatusColor,
   isOverdue,
 } from "@/lib/utils";
-import type { Book, Borrow } from "@/types";
+import type { Book, BorrowSummary } from "@/types";
 
-function getBorrowStatus(borrow: Borrow): "returned" | "overdue" | "active" {
+function getBorrowStatus(
+  borrow: BorrowSummary,
+): "returned" | "overdue" | "active" {
   if (borrow.returned_at !== null) return "returned";
   if (isOverdue(borrow.due_date, borrow.returned_at)) return "overdue";
   return "active";
@@ -53,7 +55,7 @@ function SkeletonCard() {
 export default function BookDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [book, setBook] = useState<Book | null>(null);
-  const [borrows, setBorrows] = useState<Borrow[]>([]);
+  const [borrows, setBorrows] = useState<BorrowSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -382,7 +384,7 @@ export default function BookDetailPage() {
                           href={`/members/${borrow.member_id}`}
                           className="text-blue-600 hover:underline"
                         >
-                          {borrow.member.name}
+                          {borrow.member_name}
                         </Link>
                       </TableCell>
                       <TableCell className="text-stone-500">
