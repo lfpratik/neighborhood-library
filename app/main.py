@@ -18,6 +18,7 @@ from app.domain.book import (
     BookNotFoundError,
     BookRetirementError,
     DuplicateISBNError,
+    InvalidBookStatusTransitionError,
 )
 from app.domain.borrow import (
     BookAlreadyBorrowedError,
@@ -26,6 +27,7 @@ from app.domain.borrow import (
 )
 from app.domain.member import (
     DuplicateEmailError,
+    InvalidMemberStatusTransitionError,
     MemberNotActiveError,
     MemberNotFoundError,
 )
@@ -137,9 +139,11 @@ def create_app() -> FastAPI:
     conflict = [
         BookNotAvailableError,
         BookRetirementError,
+        InvalidBookStatusTransitionError,
         BookAlreadyBorrowedError,
         BookAlreadyReturnedError,
         MemberNotActiveError,
+        InvalidMemberStatusTransitionError,
         DuplicateEmailError,
         DuplicateISBNError,
     ]
