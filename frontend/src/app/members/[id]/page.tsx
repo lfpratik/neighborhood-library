@@ -25,9 +25,11 @@ import {
   getBorrows,
 } from "@/lib/api";
 import { formatDate, getStatusColor, isOverdue } from "@/lib/utils";
-import type { Member, Borrow } from "@/types";
+import type { Member, BorrowSummary } from "@/types";
 
-function getBorrowStatus(borrow: Borrow): "returned" | "overdue" | "active" {
+function getBorrowStatus(
+  borrow: BorrowSummary,
+): "returned" | "overdue" | "active" {
   if (borrow.returned_at !== null) return "returned";
   if (isOverdue(borrow.due_date, borrow.returned_at)) return "overdue";
   return "active";
@@ -53,8 +55,8 @@ function SkeletonCard() {
 export default function MemberDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [member, setMember] = useState<Member | null>(null);
-  const [activeBorrows, setActiveBorrows] = useState<Borrow[]>([]);
-  const [allBorrows, setAllBorrows] = useState<Borrow[]>([]);
+  const [activeBorrows, setActiveBorrows] = useState<BorrowSummary[]>([]);
+  const [allBorrows, setAllBorrows] = useState<BorrowSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -359,7 +361,7 @@ export default function MemberDetailPage() {
                           href={`/books/${borrow.book_id}`}
                           className="text-blue-600 hover:underline"
                         >
-                          {borrow.book.title}
+                          {borrow.book_title}
                         </Link>
                       </TableCell>
                       <TableCell className="text-stone-500">
@@ -411,7 +413,7 @@ export default function MemberDetailPage() {
                           href={`/books/${borrow.book_id}`}
                           className="text-blue-600 hover:underline"
                         >
-                          {borrow.book.title}
+                          {borrow.book_title}
                         </Link>
                       </TableCell>
                       <TableCell className="text-stone-500">

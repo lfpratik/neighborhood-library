@@ -69,8 +69,8 @@ def replace_member(
     data: MemberUpdate,
     service: MemberService = Depends(get_member_service),
 ) -> MemberResponse:
-    """Replace member information."""
-    member = service.update_member(member_id, data)
+    """Replace member information (all fields)."""
+    member = service.replace_member(member_id, data)
     return MemberResponse.model_validate(member)
 
 

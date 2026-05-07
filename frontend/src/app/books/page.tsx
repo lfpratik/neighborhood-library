@@ -13,9 +13,9 @@ import {
 import BookTable from "@/components/books/BookTable";
 import BookFormModal from "@/components/books/BookFormModal";
 import { getBooks } from "@/lib/api";
+import { PAGE_SIZE } from "@/lib/constants";
 import type { Book } from "@/types";
-
-const PAGE_SIZE = 10;
+import { toast } from "sonner";
 
 function SkeletonRows() {
   return (
@@ -56,6 +56,7 @@ export default function BooksPage() {
         setBooks(res.items);
         setTotal(res.total);
       })
+      .catch((err: Error) => toast.error(err.message))
       .finally(() => setLoading(false));
   }
 

@@ -105,16 +105,20 @@ def test_list_overdue(client, db_session):
 
 
 def test_put_book(client):
-    book = client.post("/api/v1/books", json={"title": "Old Title", "author": "Old Author"}).json()
+    book = client.post(
+        "/api/v1/books", json={"title": "Old Title", "author": "Old Author", "genre": "Sci-Fi"}
+    ).json()
+    assert book["genre"] == "Sci-Fi"
+    # PUT without genre — should clear it to None (full replacement)
     resp = client.put(
         f"/api/v1/books/{book['id']}",
-        json={"title": "New Title", "author": "New Author", "genre": "Fiction"},
+        json={"title": "New Title", "author": "New Author"},
     )
     assert resp.status_code == 200
     data = resp.json()
     assert data["title"] == "New Title"
     assert data["author"] == "New Author"
-    assert data["genre"] == "Fiction"
+    assert data["genre"] is None
 
 
 def test_patch_book(client):
@@ -139,17 +143,20 @@ def test_put_book_not_found(client):
 
 def test_put_member(client):
     member = client.post(
-        "/api/v1/members", json={"name": "Old Name", "email": "old@example.com"}
+        "/api/v1/members",
+        json={"name": "Old Name", "email": "old@example.com", "phone": "555-0000"},
     ).json()
+    assert member["phone"] == "555-0000"
+    # PUT without phone — should clear it to None (full replacement)
     resp = client.put(
         f"/api/v1/members/{member['id']}",
-        json={"name": "New Name", "email": "new@example.com", "phone": "555-1234"},
+        json={"name": "New Name", "email": "new@example.com"},
     )
     assert resp.status_code == 200
     data = resp.json()
     assert data["name"] == "New Name"
     assert data["email"] == "new@example.com"
-    assert data["phone"] == "555-1234"
+    assert data["phone"] is None
 
 
 def test_patch_member(client):
@@ -183,28 +190,55 @@ def test_put_member_duplicate_email(client):
 
 # --- ISBN uniqueness ---
 
+
 def test_create_book_duplicate_isbn(client):
-    client.post("/api/v1/books", json={"title": "Book A", "author": "Author", "isbn": "9781234567890"})
-    resp = client.post("/api/v1/books", json={"title": "Book B", "author": "Author", "isbn": "9781234567890"})
+    client.post(
+        "/api/v1/books", json={"title": "Book A", "author": "Author", "isbn": "9781234567890"}
+    )
+    resp = client.post(
+        "/api/v1/books", json={"title": "Book B", "author": "Author", "isbn": "9781234567890"}
+    )
+    assert resp.status_code == 409
+    assert "9781234567890" in resp.json()["detail"]["message"]
+
+
+def test_put_book_duplicate_isbn(client):
+    client.post(
+        "/api/v1/books", json={"title": "Book A", "author": "Author", "isbn": "9781234567890"}
+    )
+    book_b = client.post(
+        "/api/v1/books", json={"title": "Book B", "author": "Author", "isbn": "9780000000000"}
+    ).json()
+    resp = client.put(
+        f"/api/v1/books/{book_b['id']}",
+        json={"title": "Book B", "author": "Author", "isbn": "9781234567890"},
+    )
     assert resp.status_code == 409
     assert "9781234567890" in resp.json()["detail"]["message"]
 
 
 def test_patch_book_duplicate_isbn(client):
-    client.post("/api/v1/books", json={"title": "Book A", "author": "Author", "isbn": "9781234567890"})
-    book_b = client.post("/api/v1/books", json={"title": "Book B", "author": "Author", "isbn": "9780000000000"}).json()
+    client.post(
+        "/api/v1/books", json={"title": "Book A", "author": "Author", "isbn": "9781234567890"}
+    )
+    book_b = client.post(
+        "/api/v1/books", json={"title": "Book B", "author": "Author", "isbn": "9780000000000"}
+    ).json()
     resp = client.patch(f"/api/v1/books/{book_b['id']}", json={"isbn": "9781234567890"})
     assert resp.status_code == 409
     assert "9781234567890" in resp.json()["detail"]["message"]
 
 
 def test_create_book_same_isbn_allowed_for_same_book(client):
-    book = client.post("/api/v1/books", json={"title": "Book A", "author": "Author", "isbn": "9781234567890"}).json()
+    book = client.post(
+        "/api/v1/books", json={"title": "Book A", "author": "Author", "isbn": "9781234567890"}
+    ).json()
     resp = client.patch(f"/api/v1/books/{book['id']}", json={"isbn": "9781234567890"})
     assert resp.status_code == 200
 
 
 # --- Phone validation ---
+
 
 def test_create_member_invalid_phone(client):
     resp = client.post(
@@ -218,7 +252,9 @@ def test_create_member_invalid_phone(client):
 
 
 def test_create_member_valid_phone_formats(client):
-    for i, phone in enumerate(["+1 (555) 123-4567", "555-123-4567", "+919876543210", "(555) 123.4567"]):
+    for i, phone in enumerate(
+        ["+1 (555) 123-4567", "555-123-4567", "+919876543210", "(555) 123.4567"]
+    ):
         resp = client.post(
             "/api/v1/members",
             json={"name": f"User {i}", "email": f"user{i}@example.com", "phone": phone},
@@ -227,7 +263,9 @@ def test_create_member_valid_phone_formats(client):
 
 
 def test_patch_member_invalid_phone(client):
-    member = client.post("/api/v1/members", json={"name": "Alice", "email": "alice@example.com"}).json()
+    member = client.post(
+        "/api/v1/members", json={"name": "Alice", "email": "alice@example.com"}
+    ).json()
     resp = client.patch(f"/api/v1/members/{member['id']}", json={"phone": "not a phone"})
     assert resp.status_code == 422
     assert resp.json()["detail"]["code"] == "ValidationError"
@@ -240,6 +278,7 @@ def test_create_member_null_phone_allowed(client):
 
 
 # --- Email validation ---
+
 
 def test_create_member_invalid_email(client):
     resp = client.post(
@@ -259,13 +298,16 @@ def test_create_member_valid_email_formats(client):
 
 
 def test_patch_member_invalid_email(client):
-    member = client.post("/api/v1/members", json={"name": "Alice", "email": "alice@example.com"}).json()
+    member = client.post(
+        "/api/v1/members", json={"name": "Alice", "email": "alice@example.com"}
+    ).json()
     resp = client.patch(f"/api/v1/members/{member['id']}", json={"email": "plaintext"})
     assert resp.status_code == 422
     assert resp.json()["detail"]["code"] == "ValidationError"
 
 
 # --- 422 error shape ---
+
 
 def test_422_error_shape(client):
     resp = client.post("/api/v1/members", json={"name": "Alice"})  # missing email
@@ -274,6 +316,47 @@ def test_422_error_shape(client):
     assert "code" in detail
     assert "message" in detail
     assert detail["code"] == "ValidationError"
+
+
+def test_create_member_duplicate_email(client):
+    client.post("/api/v1/members", json={"name": "Alice", "email": "alice@example.com"})
+    resp = client.post("/api/v1/members", json={"name": "Alice 2", "email": "alice@example.com"})
+    assert resp.status_code == 409
+    assert "alice@example.com" in resp.json()["detail"]["message"]
+
+
+def test_list_borrows_returns_flat_fields(client):
+    book = client.post("/api/v1/books", json={"title": "SICP", "author": "Abelson"}).json()
+    member = client.post(
+        "/api/v1/members", json={"name": "Alice", "email": "alice@example.com"}
+    ).json()
+    client.post("/api/v1/borrows", json={"book_id": book["id"], "member_id": member["id"]})
+
+    resp = client.get("/api/v1/borrows")
+    assert resp.status_code == 200
+    item = resp.json()["items"][0]
+    assert item["book_title"] == "SICP"
+    assert item["member_name"] == "Alice"
+    assert "book" not in item
+    assert "member" not in item
+
+
+def test_get_borrow_returns_nested_objects(client):
+    book = client.post("/api/v1/books", json={"title": "SICP", "author": "Abelson"}).json()
+    member = client.post(
+        "/api/v1/members", json={"name": "Alice", "email": "alice@example.com"}
+    ).json()
+    borrow = client.post(
+        "/api/v1/borrows", json={"book_id": book["id"], "member_id": member["id"]}
+    ).json()
+
+    resp = client.get(f"/api/v1/borrows/{borrow['id']}")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["book"]["title"] == "SICP"
+    assert data["member"]["name"] == "Alice"
+    assert "book_title" not in data
+    assert "member_name" not in data
 
 
 def test_filter_by_member(client):

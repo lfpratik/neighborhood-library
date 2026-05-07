@@ -173,10 +173,13 @@ build:
 
 run:
 	docker-compose up -d
+	$(MAKE) docker-seed
 	@echo ""
 	@echo "✓ Services started!"
 	@echo "  API:  http://localhost:8000/api/v1"
 	@echo "  Docs: http://localhost:8000/docs"
+	@echo "  ReDoc: http://localhost:8000/redoc"
+	@echo "  Frontend: http://localhost:3000"
 
 up:
 	docker-compose up -d

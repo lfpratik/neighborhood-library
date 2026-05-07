@@ -11,10 +11,14 @@ from app.database.models import Base
 from app.database.models.book import Book
 from app.database.models.borrow import Borrow
 from app.database.models.member import Member
-from app.dependencies import get_db
+from app.database.unit_of_work import UnitOfWork
+from app.dependencies import get_uow
 from app.main import app
 
 
+# ------------------------
+# Engine
+# ------------------------
 @pytest.fixture
 def db_engine():
     engine = create_engine(
@@ -29,18 +33,24 @@ def db_engine():
 
 @pytest.fixture
 def db_session(db_engine):
-    session_local = sessionmaker(autocommit=False, autoflush=True, bind=db_engine)
+    connection = db_engine.connect()
+    session_local = sessionmaker(bind=connection, autoflush=True)
     session = session_local()
-    yield session
-    session.close()
+    try:
+        yield session
+    finally:
+        session.close()
+        connection.close()
 
 
 @pytest.fixture
 def client(db_session):
-    def override_get_db():
-        yield db_session
+    def override_get_uow():
+        # DO NOT wrap with UnitOfWork context manager
+        # because FastAPI lifecycle is already handling request boundaries
+        yield UnitOfWork.with_session(db_session)
 
-    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_uow] = override_get_uow
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

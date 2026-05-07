@@ -1,5 +1,7 @@
 """Application configuration."""
 
+from functools import lru_cache
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -12,15 +14,19 @@ class Settings(BaseSettings):
     # ------------------------
     database_url: str = Field(
         default="postgresql://postgres:postgres@localhost:5432/library",
-        description="Database connection URL",
     )
 
     # ------------------------
     # Application
     # ------------------------
-    environment: str = Field(default="development")
-    debug: bool = Field(default=True)
+    environment: str = Field(default="development")  # development | production | test
+    debug: bool = Field(default=False)
+
+    # ------------------------
+    # Logging
+    # ------------------------
     log_level: str = Field(default="INFO")
+    log_format: str = Field(default="json")  # json | console
 
     # ------------------------
     # API
@@ -43,14 +49,17 @@ class Settings(BaseSettings):
     app_port: int = Field(default=8000)
 
     # ------------------------
-    # Pydantic Settings Config
+    # Pydantic config
     # ------------------------
     model_config = SettingsConfigDict(
         env_file=".env.local",
         env_file_encoding="utf-8",
-        case_sensitive=False,  # allows DATABASE_URL → database_url
-        extra="ignore",  # ignore unused env vars (docker, system, etc.)
+        case_sensitive=False,
+        extra="ignore",
     )
 
 
-settings = Settings()
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    """Cached settings instance."""
+    return Settings()

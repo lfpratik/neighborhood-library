@@ -1,79 +1,96 @@
+from __future__ import annotations
+
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from uuid import UUID
+
+from sqlalchemy.exc import IntegrityError
 
 from app.api.schemas.borrow import BorrowCreate
 from app.database.models.borrow import Borrow
-from app.database.repositories.book_repository import BookRepository
-from app.database.repositories.borrow_repository import BorrowRepository
-from app.database.repositories.member_repository import MemberRepository
-from app.domain.book import BookNotAvailableError, BookNotFoundError, BookStatus
+from app.domain.book import BookNotFoundError, BookStatus, validate_book_is_available
 from app.domain.borrow import (
     BookAlreadyBorrowedError,
     BorrowNotFoundError,
     calculate_due_date,
+    is_overdue,
     validate_borrow_is_active,
 )
-from app.domain.member import MemberNotActiveError, MemberNotFoundError, MemberStatus
+from app.domain.member import MemberNotFoundError, MemberStatus, validate_member_is_active
+from app.services import BaseService
+
+if TYPE_CHECKING:
+    from app.database.unit_of_work import UnitOfWork
 
 
-class BorrowService:
-    def __init__(
-        self,
-        borrow_repo: BorrowRepository,
-        book_repo: BookRepository,
-        member_repo: MemberRepository,
-    ) -> None:
-        self.borrow_repo = borrow_repo
-        self.book_repo = book_repo
-        self.member_repo = member_repo
+class BorrowService(BaseService):
+    def __init__(self, uow: UnitOfWork) -> None:
+        self.uow = uow
 
     def borrow_book(self, data: BorrowCreate) -> Borrow:
         """Record a book borrow. Domain layer validates all rules."""
-        book = self.book_repo.get_by_id(data.book_id)
+        book = self.uow.books.get_by_id(data.book_id)
         if book is None:
             raise BookNotFoundError(f"Book {data.book_id} not found")
-        if book.status != BookStatus.AVAILABLE.value:
-            raise BookNotAvailableError(f"Book is currently {book.status}")
+        validate_book_is_available(BookStatus(book.status))
 
-        member = self.member_repo.get_by_id(data.member_id)
+        member = self.uow.members.get_by_id(data.member_id)
         if member is None:
             raise MemberNotFoundError(f"Member {data.member_id} not found")
-        if member.status != MemberStatus.ACTIVE.value:
-            raise MemberNotActiveError(f"Member is {member.status}")
+        validate_member_is_active(MemberStatus(member.status))
 
-        if self.borrow_repo.get_active_by_book_id(data.book_id) is not None:
+        # Fast-fail (not the real guard — DB constraint is)
+        if self.uow.borrows.get_active_by_book_id(data.book_id) is not None:
             raise BookAlreadyBorrowedError("Book already has an active borrow")
 
         borrowed_at = datetime.now(UTC)
-        due_date = calculate_due_date(borrowed_at)
-        borrow = self.borrow_repo.create(
-            {
-                "book_id": data.book_id,
-                "member_id": data.member_id,
-                "borrowed_at": borrowed_at,
-                "due_date": due_date,
-                "notes": data.notes,
-            }
+        try:
+            borrow = self.uow.borrows.create(
+                {
+                    "book_id": data.book_id,
+                    "member_id": data.member_id,
+                    "borrowed_at": borrowed_at,
+                    "due_date": calculate_due_date(borrowed_at),
+                    "notes": data.notes,
+                }
+            )
+            self.uow.books.update_status(data.book_id, BookStatus.BORROWED.value)
+        except IntegrityError as ie:
+            raise BookAlreadyBorrowedError("Book already has an active borrow") from ie
+
+        self.logger.info(
+            "borrow_created",
+            borrow_id=str(borrow.id),
+            book_id=str(borrow.book_id),
+            member_id=str(borrow.member_id),
+            due_date=borrow.due_date.isoformat(),
         )
-        self.book_repo.update_status(data.book_id, BookStatus.BORROWED.value)
-        self.borrow_repo.db.commit()
-        return self.borrow_repo.get_by_id(borrow.id)  # type: ignore[return-value]
+        return borrow
 
     def return_book(self, borrow_id: UUID) -> Borrow:
         """Return a borrowed book. Domain layer validates it's still active."""
-        borrow = self.borrow_repo.get_by_id(borrow_id)
+        borrow = self.uow.borrows.get_by_id(borrow_id)
         if borrow is None:
             raise BorrowNotFoundError(f"Borrow {borrow_id} not found")
+
         validate_borrow_is_active(borrow.returned_at)
 
-        self.borrow_repo.update_returned_at(borrow_id, datetime.now(UTC))
-        self.book_repo.update_status(borrow.book_id, BookStatus.AVAILABLE.value)
-        self.borrow_repo.db.commit()
-        return self.borrow_repo.get_by_id(borrow_id)  # type: ignore[return-value]
+        was_overdue = is_overdue(borrow.due_date, borrow.returned_at)
+        self.uow.borrows.update_returned_at(borrow_id, datetime.now(UTC))
+        self.uow.books.update_status(borrow.book_id, BookStatus.AVAILABLE.value)
+
+        self.logger.info(
+            "borrow_returned",
+            borrow_id=str(borrow_id),
+            book_id=str(borrow.book_id),
+            member_id=str(borrow.member_id),
+            overdue=was_overdue,
+        )
+        return borrow
 
     def get_borrow(self, borrow_id: UUID) -> Borrow:
         """Fetch a borrow by ID or raise BorrowNotFoundError."""
-        borrow = self.borrow_repo.get_by_id(borrow_id)
+        borrow = self.uow.borrows.get_by_id(borrow_id)
         if borrow is None:
             raise BorrowNotFoundError(f"Borrow {borrow_id} not found")
         return borrow
@@ -88,7 +105,7 @@ class BorrowService:
         overdue: bool | None = None,
     ) -> tuple[list[Borrow], int]:
         """List borrows with optional member/book/active/overdue filters."""
-        return self.borrow_repo.get_all(
+        return self.uow.borrows.get_all(
             page=page,
             size=size,
             member_id=member_id,

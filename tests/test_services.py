@@ -1,29 +1,32 @@
 import pytest
 
-from app.api.schemas.book import BookCreate, BookStatusUpdate
+from app.api.schemas.book import BookCreate, BookStatusUpdate, BookUpdate
 from app.api.schemas.borrow import BorrowCreate
-from app.api.schemas.member import MemberCreate, MemberStatusUpdate
-from app.database.repositories.book_repository import BookRepository
-from app.database.repositories.borrow_repository import BorrowRepository
-from app.database.repositories.member_repository import MemberRepository
-from app.domain.book import BookNotAvailableError, BookRetirementError, BookStatus
+from app.api.schemas.member import MemberCreate, MemberStatusUpdate, MemberUpdate
+from app.database.unit_of_work import UnitOfWork
+from app.domain.book import (
+    BookNotAvailableError,
+    BookRetirementError,
+    BookStatus,
+    DuplicateISBNError,
+)
 from app.domain.borrow import BookAlreadyBorrowedError, BookAlreadyReturnedError
-from app.domain.member import MemberNotActiveError, MemberStatus
+from app.domain.member import DuplicateEmailError, MemberNotActiveError, MemberStatus
 from app.services.book_service import BookService
 from app.services.borrow_service import BorrowService
 from app.services.member_service import MemberService
 
 
 def book_service(db):
-    return BookService(BookRepository(db))
+    return BookService(UnitOfWork.with_session(db))
 
 
 def member_service(db):
-    return MemberService(MemberRepository(db))
+    return MemberService(UnitOfWork.with_session(db))
 
 
 def borrow_service(db):
-    return BorrowService(BorrowRepository(db), BookRepository(db), MemberRepository(db))
+    return BorrowService(UnitOfWork.with_session(db))
 
 
 def test_create_book(db_session):
@@ -36,8 +39,44 @@ def test_create_book(db_session):
 def test_create_member_duplicate_email(db_session):
     svc = member_service(db_session)
     svc.create_member(MemberCreate(name="Alice", email="alice@example.com"))
-    with pytest.raises(ValueError):
+    with pytest.raises(DuplicateEmailError):
         svc.create_member(MemberCreate(name="Bob", email="alice@example.com"))
+
+
+def test_create_book_duplicate_isbn(db_session):
+    svc = book_service(db_session)
+    svc.create_book(BookCreate(title="Book A", author="Author", isbn="9781234567890"))
+    with pytest.raises(DuplicateISBNError, match="already registered"):
+        svc.create_book(BookCreate(title="Book B", author="Author", isbn="9781234567890"))
+
+
+def test_update_book_duplicate_isbn(db_session):
+    svc = book_service(db_session)
+    svc.create_book(BookCreate(title="Book A", author="Author", isbn="9781234567890"))
+    book_b = svc.create_book(BookCreate(title="Book B", author="Author", isbn="9780000000000"))
+
+    with pytest.raises(DuplicateISBNError, match="already registered"):
+        svc.update_book(book_b.id, BookUpdate(isbn="9781234567890"))  # PATCH path
+
+
+def test_replace_book_duplicate_isbn(db_session):
+    svc = book_service(db_session)
+    svc.create_book(BookCreate(title="Book A", author="Author", isbn="9781234567890"))
+    book_b = svc.create_book(BookCreate(title="Book B", author="Author", isbn="9780000000000"))
+
+    with pytest.raises(DuplicateISBNError, match="already registered"):
+        svc.replace_book(
+            book_b.id, BookUpdate(title="Book B", author="Author", isbn="9781234567890")
+        )  # PUT path
+
+
+def test_replace_member_duplicate_email(db_session):
+    svc = member_service(db_session)
+    svc.create_member(MemberCreate(name="Alice", email="alice@example.com"))
+    bob = svc.create_member(MemberCreate(name="Bob", email="bob@example.com"))
+
+    with pytest.raises(DuplicateEmailError, match="already registered"):
+        svc.replace_member(bob.id, MemberUpdate(name="Bob", email="alice@example.com"))  # PUT path
 
 
 def test_borrow_book_success(db_session):
@@ -52,16 +91,6 @@ def test_borrow_book_success(db_session):
     assert borrow.member_id == member.id
     assert borrow.returned_at is None
     assert borrow.due_date is not None
-
-
-def test_borrow_unavailable_book(db_session):
-    book = book_service(db_session).create_book(BookCreate(title="SICP", author="Abelson"))
-    book_service(db_session).update_status(book.id, BookStatusUpdate(status=BookStatus.RETIRED))
-    member = member_service(db_session).create_member(
-        MemberCreate(name="Carol", email="carol@example.com")
-    )
-    with pytest.raises(BookNotAvailableError):
-        borrow_service(db_session).borrow_book(BorrowCreate(book_id=book.id, member_id=member.id))
 
 
 def test_borrow_by_inactive_member(db_session):
@@ -119,7 +148,7 @@ def test_return_already_returned(db_session):
 def test_update_book_partial(db_session):
     svc = book_service(db_session)
     book = svc.create_book(BookCreate(title="Original", author="Author", genre="Sci-Fi"))
-    from app.api.schemas.book import BookUpdate
+    db_session.commit()
 
     updated = svc.update_book(book.id, BookUpdate(title="Updated Title"))
     assert updated.title == "Updated Title"
@@ -129,19 +158,45 @@ def test_update_book_partial(db_session):
 
 def test_update_book_full(db_session):
     svc = book_service(db_session)
-    book = svc.create_book(BookCreate(title="Original", author="Author"))
-    from app.api.schemas.book import BookUpdate
+    book = svc.create_book(BookCreate(title="Original", author="Author", genre="Sci-Fi"))
 
-    updated = svc.update_book(book.id, BookUpdate(title="New", author="New Author", genre="Drama"))
+    updated = svc.replace_book(book.id, BookUpdate(title="New", author="New Author"))
     assert updated.title == "New"
     assert updated.author == "New Author"
-    assert updated.genre == "Drama"
+    assert updated.genre is None
+
+
+def test_book_status_transition_retire(db_session):
+    svc = book_service(db_session)
+
+    book = svc.create_book(BookCreate(title="Old Book", author="Someone"))
+    db_session.commit()
+
+    retired = svc.update_status(book.id, BookStatusUpdate(status=BookStatus.RETIRED))
+
+    assert retired.status == "retired"
+
+
+def test_book_status_transition_retire_borrowed(db_session):
+    svc_book = book_service(db_session)
+    svc_member = member_service(db_session)
+    svc_borrow = borrow_service(db_session)
+
+    book = svc_book.create_book(BookCreate(title="SICP", author="Abelson"))
+    member = svc_member.create_member(MemberCreate(name="Ivan", email="ivan@example.com"))
+    db_session.commit()
+
+    svc_borrow.borrow_book(BorrowCreate(book_id=book.id, member_id=member.id))
+
+    with pytest.raises(BookRetirementError):
+        svc_book.update_status(book.id, BookStatusUpdate(status=BookStatus.RETIRED))
 
 
 def test_update_member_partial(db_session):
     svc = member_service(db_session)
-    member = svc.create_member(MemberCreate(name="Alice", email="alice@example.com", phone="555-1234"))
-    from app.api.schemas.member import MemberUpdate
+    member = svc.create_member(
+        MemberCreate(name="Alice", email="alice@example.com", phone="555-1234")
+    )
 
     updated = svc.update_member(member.id, MemberUpdate(phone="555-9999"))
     assert updated.phone == "555-9999"
@@ -153,34 +208,29 @@ def test_update_member_duplicate_email(db_session):
     svc = member_service(db_session)
     svc.create_member(MemberCreate(name="Alice", email="alice@example.com"))
     bob = svc.create_member(MemberCreate(name="Bob", email="bob@example.com"))
-    from app.api.schemas.member import MemberUpdate
 
-    with pytest.raises(ValueError, match="already registered"):
+    with pytest.raises(DuplicateEmailError, match="already registered"):
         svc.update_member(bob.id, MemberUpdate(email="alice@example.com"))
 
 
 def test_update_member_same_email_no_conflict(db_session):
     svc = member_service(db_session)
     member = svc.create_member(MemberCreate(name="Alice", email="alice@example.com"))
-    from app.api.schemas.member import MemberUpdate
 
     updated = svc.update_member(member.id, MemberUpdate(email="alice@example.com", name="Alice B"))
     assert updated.email == "alice@example.com"
     assert updated.name == "Alice B"
 
 
-def test_book_status_transition_retire(db_session):
-    svc = book_service(db_session)
-    book = svc.create_book(BookCreate(title="Old Book", author="Someone"))
-    retired = svc.update_status(book.id, BookStatusUpdate(status=BookStatus.RETIRED))
-    assert retired.status == "retired"
+def test_borrow_unavailable_book(db_session):
+    svc_book = book_service(db_session)
+    svc_member = member_service(db_session)
+    svc_borrow = borrow_service(db_session)
 
+    book = svc_book.create_book(BookCreate(title="SICP", author="Abelson"))
+    svc_book.update_status(book.id, BookStatusUpdate(status=BookStatus.RETIRED))
+    member = svc_member.create_member(MemberCreate(name="Carol", email="carol@example.com"))
+    db_session.commit()
 
-def test_book_status_transition_retire_borrowed(db_session):
-    book = book_service(db_session).create_book(BookCreate(title="SICP", author="Abelson"))
-    member = member_service(db_session).create_member(
-        MemberCreate(name="Ivan", email="ivan@example.com")
-    )
-    borrow_service(db_session).borrow_book(BorrowCreate(book_id=book.id, member_id=member.id))
-    with pytest.raises(BookRetirementError):
-        book_service(db_session).update_status(book.id, BookStatusUpdate(status=BookStatus.RETIRED))
+    with pytest.raises(BookNotAvailableError):
+        svc_borrow.borrow_book(BorrowCreate(book_id=book.id, member_id=member.id))

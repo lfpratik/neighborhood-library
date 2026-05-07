@@ -6,15 +6,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Users, ArrowLeftRight, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { getBooks, getMembers, getBorrows } from "@/lib/api";
+import { toast } from "sonner";
 import { formatDate, isOverdue } from "@/lib/utils";
-import type { Borrow } from "@/types";
+import type { BorrowSummary } from "@/types";
 
 interface DashboardData {
   totalBooks: number;
   activeMembers: number;
   activeBorrows: number;
   overdueBorrows: number;
-  recentBorrows: Borrow[];
+  recentBorrows: BorrowSummary[];
 }
 
 function SkeletonCard() {
@@ -49,7 +50,9 @@ export default function DashboardPage() {
         overdueBorrows: overdueBorrows.total,
         recentBorrows: recentBorrows.items,
       });
-    }).finally(() => setLoading(false));
+    })
+    .catch((err: Error) => toast.error(err.message))
+    .finally(() => setLoading(false));
   }, []);
 
   const statCards = [
@@ -124,9 +127,9 @@ export default function DashboardPage() {
                 return (
                   <li key={borrow.id} className="flex items-center justify-between py-2.5">
                     <span className="text-sm text-stone-700">
-                      <span className="font-medium">{borrow.member.name}</span>
+                      <span className="font-medium">{borrow.member_name}</span>
                       {" borrowed "}
-                      <span className="font-medium">{borrow.book.title}</span>
+                      <span className="font-medium">{borrow.book_title}</span>
                       {" — due "}
                       <span className="text-stone-500">{formatDate(borrow.due_date)}</span>
                     </span>
